@@ -411,7 +411,7 @@
         var line_chart = echarts.init($('#line')[0]);
         var line_option = {
             title:{
-                text: 'Objective Value',
+                text: 'Min Objective Value',
             },
             tooltip: {
                 trigger: 'item',
@@ -442,7 +442,7 @@
             },
             xAxis: {
 
-                name: 'Number of iterations n',
+                name: 'Iterations',
                 boundaryGap: false,
                 nameLocation: 'center',
                 nameRotate: '0',
@@ -487,7 +487,7 @@
             var pareto_hv_chart = echarts.init($('#pareto_hv')[0]);
             var pareto_hv_option = {
                 title:{
-                    text: 'Pareto Frontier Hypervolume',
+                    text: 'Hypervolume',
                     subtext: 'This shows the hypervolume surrounded by the Pareto frontier.'
                 },
                 tooltip: {
@@ -506,8 +506,7 @@
                     top: 90
                 },
                 xAxis: {
-
-                    name: 'Number of iterations n',
+                    name: 'Iterations',
                     boundaryGap: false,
                     nameLocation: 'center',
                     nameRotate: '0',
@@ -600,9 +599,10 @@
                     left: '100px',
                 },
                 legend: {
-                    left: 10,
-                    top: 10,
-                    'selected': {}
+                    left: 30,
+                    top: 30,
+                    'selected': {},
+                    selectedMode: 'single'
                 },
                 tooltip: {
                     trigger: 'axis',
@@ -613,7 +613,7 @@
                 dataZoom: mydataZoom,
                 xAxis: {
                     type: 'value',
-                    name: 'Number of iterations n',
+                    name: 'Iterations',
                     boundaryGap: false,
                     nameLocation: 'center',
                     nameRotate: '0',
@@ -702,16 +702,15 @@
                 tooltip: {
                     trigger: 'axis'
                 },
-                dataZoom: mydataZoom,
                 xAxis: {
-                    name: 'obj1\n',
+                    name: 'obj 1\n',
                     nameLocation:'center',
                     splitLine: {
                         show: false,
                     },
                 },
                 yAxis: {
-                    name: 'obj2\n',
+                    name: 'obj 2\n',
                     nameLocation:'center',
                 },
                 series: [
@@ -768,7 +767,7 @@
                 xAxis3D: {
                     type: 'value',
                     min: 'dataMin',
-                    name: 'obj1\n',
+                    name: 'obj 1\n',
                     nameLocation: 'center',
                     axisLabel:{
                     formatter:function(value,index){
@@ -779,7 +778,7 @@
                 yAxis3D: {
                     type: 'value',
                     min: 'dataMin',
-                    name: 'obj2\n',
+                    name: 'obj 2\n',
                     nameLocation: 'center',
                     axisLabel:{
                     formatter:function(value,index){
@@ -790,7 +789,7 @@
                 zAxis3D: {
                     type: 'value',
                     min: 'dataMin',
-                    name: 'obj3\n',
+                    name: 'obj 3\n',
                     nameLocation: 'center',
                     axisLabel:{
                     formatter:function(value,index){

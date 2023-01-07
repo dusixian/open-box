@@ -10,6 +10,8 @@ from openbox import logger
 from openbox.utils.history import History
 from openbox.visualization.base_visualizer import BaseVisualizer
 from openbox.surrogate.base.base_model import AbstractModel
+from openbox import space as sp
+from openbox.core.base import build_surrogate
 
 
 class HTMLVisualizer(BaseVisualizer):
@@ -26,6 +28,10 @@ class HTMLVisualizer(BaseVisualizer):
             advanced_analysis_options: dict = None,
             advisor_type: str = None,
             surrogate_type: str = None,
+            constraint_surrogate_type: str = None,
+            config_space: sp.Space = None,
+            rng: np.random.RandomState = None,
+            transfer_learning_history: List[History] = None,
             max_iterations: int = None,
             time_limit_per_trial: int = None,
             surrogate_model: Union[AbstractModel, List[AbstractModel]] = None,
@@ -51,9 +57,15 @@ class HTMLVisualizer(BaseVisualizer):
             'task_id': task_id,
             'advisor_type': advisor_type,
             'surrogate_type': surrogate_type,
+            'constraint_surrogate_type': constraint_surrogate_type,
             'max_iterations': max_iterations,
             'time_limit_per_trial': time_limit_per_trial,
         }
+
+        self.config_space = config_space
+        self.rng = rng
+        self.transfer_learning_history = transfer_learning_history
+
         self.surrogate_model = surrogate_model  # todo: if model is altered, this will not be updated
         self.constraint_models = constraint_models
         self.timestamp = None
@@ -86,7 +98,8 @@ class HTMLVisualizer(BaseVisualizer):
                 update_interval = self.advanced_analysis_options['importance_update_interval']
                 update_importance = iter_id and ((iter_id % update_interval == 0) or (iter_id >= max_iter))
         if verify_surrogate is None:
-            verify_surrogate = False if not self.advanced_analysis else (iter_id >= max_iter)
+            verify_surrogate = False if not self.advanced_analysis \
+                else (iter_id >= max_iter and self.meta_data['surrogate_type'])
         self.save_visualization_data(update_importance=update_importance, verify_surrogate=verify_surrogate)
 
         if iter_id == max_iter:
@@ -316,10 +329,12 @@ class HTMLVisualizer(BaseVisualizer):
             X_all = self.history.get_config_array(transform='scale')
             Y_all = self.history.get_objectives(transform='infeasible')
 
-            if self.history.num_objectives == 1:  # todo: prf does not support copy. use build surrogate instead.
-                models = [copy.deepcopy(self.surrogate_model)]
-            else:
-                models = copy.deepcopy(self.surrogate_model)
+            models = [build_surrogate(func_str=self.meta_data['surrogate_type'],
+                                      config_space=self.config_space,
+                                      rng=self.rng,
+                                      transfer_learning_history=self.transfer_learning_history)
+                      for _ in range(self.history.num_objectives)]
+
             pre_label_data, grade_data = self.verify_surrogate(X_all, Y_all, models)
 
             if self.history.num_constraints == 0:
@@ -328,7 +343,9 @@ class HTMLVisualizer(BaseVisualizer):
             # prepare constraint surrogate model data
             cons_X_all = X_all
             cons_Y_all = self.history.get_constraints(transform='bilog')
-            cons_models = copy.deepcopy(self.constraint_models)
+            cons_models = [build_surrogate(func_str=self.meta_data['constraint_surrogate_type'],
+                                           config_space=self.config_space,
+                                           rng=self.rng) for _ in range(self.history.num_constraints)]
 
             cons_pre_label_data, _ = self.verify_surrogate(cons_X_all, cons_Y_all, cons_models)
 

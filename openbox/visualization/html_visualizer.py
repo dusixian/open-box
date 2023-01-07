@@ -174,10 +174,10 @@ class HTMLVisualizer(BaseVisualizer):
         all_trial_states = self.history.trial_states
         all_elapsed_times = self.history.elapsed_times
         for idx in range(len(self.history)):
-            results = [round(v, 4) for v in all_objectives[idx]]
+            results = [round(v, 6) for v in all_objectives[idx]]
             constraints = None
             if self.history.num_constraints > 0:
-                constraints = [round(v, 4) for v in all_constraints[idx]]
+                constraints = [round(v, 6) for v in all_constraints[idx]]
                 cons_list_rev.append(constraints)
 
             config_dic = all_config_dicts[idx]

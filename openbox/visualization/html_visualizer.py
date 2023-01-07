@@ -262,10 +262,10 @@ class HTMLVisualizer(BaseVisualizer):
             'parallel_data': option, 'table_list': table_list,
             'pareto_data': pareto,
             'task_inf': {
-                'table_field': ['task_id', 'Advisor Type', 'Surrogate Type', 'max_runs',
+                'table_field': ['Task Id', 'Advisor Type', 'Surrogate Type', 'Current Run', 'Max Runs',
                                 'Time Limit Per Trial'],
                 'table_data': [self.meta_data['task_id'], self.meta_data['advisor_type'],
-                               self.meta_data['surrogate_type'], self.meta_data['max_iterations'],
+                               self.meta_data['surrogate_type'], len(self.history), self.meta_data['max_iterations'],
                                self.meta_data['time_limit_per_trial']]
             },
             'importance_data': None,
@@ -303,7 +303,7 @@ class HTMLVisualizer(BaseVisualizer):
 
             for key, value in objective_importance.items():
                 for i in range(len(value)):
-                    y_name = 'obj' + str(i + 1)
+                    y_name = 'obj ' + str(i + 1)
                     if y_name not in importance['data']:
                         importance['data'][y_name] = list()
                     importance['data'][y_name].append(value[i])

@@ -33,10 +33,11 @@
                             <table id="task-inf-tab" class="table table-bordered table-hover table-striped">
                                 <thead>
                                     <tr>
-                                        <th> task_id </th>
+                                        <th> Task Id </th>
                                         <th> Advisor Type </th>
                                         <th> Surrogate Type </th>
-                                        <th> max_runs </th>
+                                        <th> Current Run </th>
+                                        <th> Max Runs </th>
                                         <th> Time Limit Per Trial </th>
                                     </tr>
                                 </thead>
@@ -324,6 +325,8 @@
         tbody.rows[0].cells[3].appendChild(document.createTextNode(data["task_inf"]["table_data"][3]));
         tbody.rows[0].insertCell(4)
         tbody.rows[0].cells[4].appendChild(document.createTextNode(data["task_inf"]["table_data"][4]));
+        tbody.rows[0].insertCell(5)
+        tbody.rows[0].cells[5].appendChild(document.createTextNode(data["task_inf"]["table_data"][5]));
 
         var lineStyle = {
             normal: {

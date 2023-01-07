@@ -153,8 +153,8 @@ class HTMLVisualizer(BaseVisualizer):
     def generate_basic_data(self):
         # Config Table data
         table_list = []
-        # all the config list
-        rh_config = {}
+        # # all the config list
+        # rh_config = {}
         # Parallel Data
         option = {'data': [list() for i in range(self.history.num_objectives)], 'schema': [], 'visualMap': {}}
         # all the performance
@@ -188,10 +188,10 @@ class HTMLVisualizer(BaseVisualizer):
                 config_str = config_str[1:-1]
 
             table_list.append(
-                [idx + 1, results, constraints, config_str, all_trial_states[idx],
+                [idx + 1, results, constraints, config_dic, config_str, all_trial_states[idx],
                  round(all_elapsed_times[idx], 3)])
 
-            rh_config[str(idx + 1)] = config_dic
+            # rh_config[str(idx + 1)] = config_dic
 
             config_values = []
             for parameter in config_dic.keys():
@@ -259,7 +259,7 @@ class HTMLVisualizer(BaseVisualizer):
             'line_data': line_data,
             'cons_line_data': [[[idx, con] for idx, con in enumerate(c_l)] for c_l in cons_list],
             'cons_list_rev': cons_list_rev,
-            'parallel_data': option, 'table_list': table_list, 'rh_config': rh_config,
+            'parallel_data': option, 'table_list': table_list,
             'pareto_data': pareto,
             'task_inf': {
                 'table_field': ['task_id', 'Advisor Type', 'Surrogate Type', 'max_runs',

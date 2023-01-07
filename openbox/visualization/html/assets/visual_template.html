@@ -356,7 +356,7 @@
 
 
 
-        var rh_config = {};
+        var rh_config = [];
         var task_id = "{{ task_id | safe}}";
         function show_config(rh_id) {
             $('#rh_config_div').html('');
@@ -1151,21 +1151,21 @@
 
             line_option && line_chart.setOption(line_option);
 
-            rh_config = data['rh_config'];
             let table_list = data['table_list'];
             let rows = [];
             let cons = '';
             let config_str = '';
 
             for (let r in table_list) {
-                config_str = table_list[r][3] + '<a style="color:#4fbfa8;cursor:pointer;" id="show_config"+ onclick="show_config(\'' + table_list[r][0] + '\')"><strong>...</strong></a>';
-                console.log(rh_config[table_list[r][0]])
+                rh_config.push(table_list[r][3])
+                config_str = table_list[r][4] + '<a style="color:#4fbfa8;cursor:pointer;" id="show_config"+ onclick="show_config(\'' + r + '\')"><strong>...</strong></a>';
+
                 var result_str = table_list[r][1]
                 if(table_list[r][1].length > 1) {
                     var _result = {}
                     for(var i = 0; i < table_list[r][1].length; i++) _result['obj '+(i+1)] = table_list[r][1][i];
                     rh_result.push(_result)
-                    result_str = table_list[r][1][0] + '<a style="color:#4fbfa8;cursor:pointer;" id="show_result"+ onclick="show_result(\'' + table_list[r][0] + '\')"><strong>...</strong></a>';
+                    result_str = table_list[r][1][0] + '<a style="color:#4fbfa8;cursor:pointer;" id="show_result"+ onclick="show_result(\'' + r + '\')"><strong>...</strong></a>';
                 }
 
                 cons = table_list[r][2] == null ? 'Null' : table_list[r][2]
@@ -1174,10 +1174,10 @@
                     var _constraint = {}
                     for(var i = 0; i < table_list[r][2].length; i++) _constraint['cons '+(i+1)] = table_list[r][2][i];
                     rh_constraint.push(_constraint)
-                    cons_str = table_list[r][2][0] + '<a style="color:#4fbfa8;cursor:pointer;" id="show_constraint"+ onclick="show_constraint(\'' + table_list[r][0] + '\')"><strong>...</strong></a>';
+                    cons_str = table_list[r][2][0] + '<a style="color:#4fbfa8;cursor:pointer;" id="show_constraint"+ onclick="show_constraint(\'' + r + '\')"><strong>...</strong></a>';
                 }
 
-                rows.push([table_list[r][0], result_str, cons_str, config_str, table_list[r][4], table_list[r][5]])
+                rows.push([table_list[r][0], result_str, cons_str, config_str, table_list[r][5], table_list[r][6]])
             }
             console.log(rows)
             history_table.clear().draw();

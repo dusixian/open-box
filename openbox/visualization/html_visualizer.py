@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 import math
 import copy
+import importlib.resources as res
 from typing import List, Union
 import numpy as np
 from openbox import logger
@@ -12,6 +13,7 @@ from openbox.visualization.base_visualizer import BaseVisualizer
 from openbox.surrogate.base.base_model import AbstractModel
 from openbox import space as sp
 from openbox.core.base import build_surrogate
+import openbox.visualization.html.assets as assets
 
 
 class HTMLVisualizer(BaseVisualizer):
@@ -419,8 +421,8 @@ class HTMLVisualizer(BaseVisualizer):
             visual_static_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'html/assets/static')
             template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'html/assets/visual_template.html')
 
-            with open(template_path, 'r', encoding='utf-8') as f:
-                html_text = f.read()
+            datafile = res.open_text(assets, 'visual_template.html', encoding='utf-8', errors='strict')
+            html_text = datafile.read()
 
             link1_path = os.path.join(static_path, 'vendor/bootstrap/css/bootstrap.min.css')
             html_text = re.sub("<link rel=\"stylesheet\" href=\"../static/vendor/bootstrap/css/bootstrap.min.css\">",

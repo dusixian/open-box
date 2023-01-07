@@ -303,14 +303,14 @@ class HTMLVisualizer(BaseVisualizer):
 
             for key, value in objective_importance.items():
                 for i in range(len(value)):
-                    y_name = 'opt-value-' + str(i + 1)
+                    y_name = 'obj' + str(i + 1)
                     if y_name not in importance['data']:
                         importance['data'][y_name] = list()
                     importance['data'][y_name].append(value[i])
 
             for key, value in constraint_importance.items():
                 for i in range(len(value)):
-                    y_name = 'con-value-' + str(i + 1)
+                    y_name = 'cons ' + str(i + 1)
                     if y_name not in importance['con_data']:
                         importance['con_data'][y_name] = list()
                     importance['con_data'][y_name].append(value[i])

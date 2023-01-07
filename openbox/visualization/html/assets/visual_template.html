@@ -852,19 +852,19 @@
 
                 series_list.push(
                 {
-                      name: key,
-                      type: 'bar',
-                      data: data["importance_data"]["data"][key],
-                      markPoint: {
+                    name: key,
+                    type: 'bar',
+                    data: data["importance_data"]["data"][key],
+                    markPoint: {
                         data: [
-                          { type: 'max', name: 'Max' },
-                          { type: 'min', name: 'Min' }
+                            {type: 'max', name: 'Max'},
+                            {type: 'min', name: 'Min'}
                         ]
-                      },
-                      markLine: {
-                        data: [{ type: 'average', name: 'Avg' }]
-                      }
+                    },
+                    markLine: {
+                        data: [{type: 'average', name: 'Avg'}]
                     }
+                }
                 )
             }
             var para_chart = echarts.init($('#para_importance')[0]);
@@ -900,22 +900,24 @@
             para_option && para_chart.setOption(para_option);
 
             if (data["num_constraints"] > 0){
+                let legend_data = [];
                 let series_data = [];
-                for(var key in data["importance_data"]["con_data"]) {
+                for (var key in data["importance_data"]["con_data"]) {
+                    legend_data.push(key);
                     series_data.push(
-                    {
-                        name: key,
-                        type: 'bar',
-                        data: data["importance_data"]["con_data"][key],
-                        markPoint: {
-                            data: [
-                            { type: 'max', name: 'Max' },
-                            { type: 'min', name: 'Min' }
-                            ]
-                        },
-                        markLine: {
-                            data: [{ type: 'average', name: 'Avg' }]
-                        }
+                        {
+                            name: key,
+                            type: 'bar',
+                            data: data["importance_data"]["con_data"][key],
+                            markPoint: {
+                                data: [
+                                    {type: 'max', name: 'Max'},
+                                    {type: 'min', name: 'Min'}
+                                ]
+                            },
+                            markLine: {
+                                data: [{type: 'average', name: 'Avg'}]
+                            }
                         }
                     )
                 }
@@ -929,7 +931,7 @@
                         trigger: 'axis'
                     },
                     legend: {
-                        data: legend_list,
+                        data: legend_data,
                         top: '30'
                     },
                     grid:{

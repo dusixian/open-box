@@ -1184,31 +1184,31 @@
         }
 
         function verify_surrogate_model() {
-            var sur_markLineOpt1 = {
-                animation: false,
-                label: {
-                    formatter: 'y = x',
-                    align: 'right'
-                },
-                lineStyle: {
-                    type: 'solid'
-                },
-                tooltip: {
-                    formatter: 'y = x'
-                },
-                data: [
-                    [
-                        {
-                            coord: [data['pre_label_data']['min'], data['pre_label_data']['min']],
-                            symbol: 'none'
-                        },
-                        {
-                            coord: [data['pre_label_data']['max'], data['pre_label_data']['max']],
-                            symbol: 'none'
-                        }
-                    ]
-                ]
-            };
+            // var sur_markLineOpt1 = {
+            //     animation: false,
+            //     label: {
+            //         formatter: 'y = x',
+            //         align: 'right'
+            //     },
+            //     lineStyle: {
+            //         type: 'solid'
+            //     },
+            //     tooltip: {
+            //         formatter: 'y = x'
+            //     },
+            //     data: [
+            //         [
+            //             {
+            //                 coord: [data['pre_label_data']['min'], data['pre_label_data']['min']],
+            //                 symbol: 'none'
+            //             },
+            //             {
+            //                 coord: [data['pre_label_data']['max'], data['pre_label_data']['max']],
+            //                 symbol: 'none'
+            //             }
+            //         ]
+            //     ]
+            // };
             // initialize Predict-Label Scatter Chart
             var pre_label_chart = echarts.init($('#pre_label_scatter')[0]);
             var pre_label_option = {
@@ -1249,8 +1249,8 @@
                         //     type: 'solid'
                         // }
                     },
-                    min: data['pre_label_data']['min'],
-                    max: data['pre_label_data']['max']
+                    min: data['pre_label_data']['min_array'][0],
+                    max: data['pre_label_data']['max_array'][0],
                 },
                 yAxis: {
                     type: 'value',
@@ -1269,8 +1269,8 @@
                         //     type: 'solid'
                         // }
                     },
-                    min: data['pre_label_data']['min'],
-                    max: data['pre_label_data']['max']
+                    min: data['pre_label_data']['min_array'][0],
+                    max: data['pre_label_data']['max_array'][0],
                 },
                 series: [
 
@@ -1284,7 +1284,31 @@
                     type: 'scatter',
                     color: '#50a3ba',
                     data: data['pre_label_data']['data'][i],
-                    markLine: sur_markLineOpt1
+                    markLine: {
+                        animation: false,
+                        label: {
+                            formatter: 'y = x',
+                            align: 'right'
+                        },
+                        lineStyle: {
+                            type: 'solid'
+                        },
+                        tooltip: {
+                            formatter: 'y = x'
+                        },
+                        data: [
+                            [
+                                {
+                                    coord: [data['pre_label_data']['min_array'][i], data['pre_label_data']['min_array'][i]],
+                                    symbol: 'none'
+                                },
+                                {
+                                    coord: [data['pre_label_data']['max_array'][i], data['pre_label_data']['max_array'][i]],
+                                    symbol: 'none'
+                                }
+                            ]
+                        ]
+                    },
                 })
                 if(i != 0) {
                     pre_label_option['legend']['selected']['obj ' + (i+1)] = false;
@@ -1292,6 +1316,20 @@
             }
 
             pre_label_option && pre_label_chart.setOption(pre_label_option);
+
+            pre_label_chart.on('legendselectchanged', function(params){
+                console.log(params);
+                for (var i = 0; i < data['num_objectives']; i++) {
+                    if (params.selected['obj ' + (i+1)]){
+                        pre_label_option.xAxis.min = data['pre_label_data']['min_array'][i]
+                        pre_label_option.xAxis.max = data['pre_label_data']['max_array'][i]
+                        pre_label_option.yAxis.min = data['pre_label_data']['min_array'][i]
+                        pre_label_option.yAxis.max = data['pre_label_data']['max_array'][i]
+                    }
+                }
+                pre_label_option['legend']['selected'] = params.selected
+                pre_label_chart.setOption(pre_label_option)
+            })
 
             var sur_markLineOpt2 = {
                 animation: false,

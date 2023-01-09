@@ -374,15 +374,21 @@ class HTMLVisualizer(BaseVisualizer):
 
         min1 = float('inf')
         max1 = -float('inf')
+        min_array = []
+        max_array = []
         for i in range(num_objectives):
             min1 = min(min1, round(min(min(pre_perfs[i]), min(Y_all[:, i])), 3))
             max1 = max(max1, round(max(max(pre_perfs[i]), max(Y_all[:, i])), 3))
+            min_array.append(min(round(min(min(pre_perfs[i]), min(Y_all[:, i])), 3),0))
+            max_array.append(round(round(max(max(pre_perfs[i]), max(Y_all[:, i])), 3) * 1.1, 3))
         min1 = min(min1, 0)
 
         pre_label_data = {
             'data': [list(zip(pre_perfs[i], Y_all[:, i])) for i in range(num_objectives)],
             'min': min1,
-            'max': round(max1 * 1.1, 3)
+            'max': round(max1 * 1.1, 3),
+            'min_array' : list(min_array),
+            'max_array' : list(max_array)
         }
         grade_data = {
             'data': [list(zip(pre_ranks[i], ranks[i])) for i in range(num_objectives)],

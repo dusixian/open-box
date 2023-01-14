@@ -249,12 +249,22 @@ class HTMLVisualizer(BaseVisualizer):
         # Pareto data
         # todo: if ref_point is None?
         # todo: if has invalid value?
+
+        y = self.history.get_objectives(transform='none', warn_invalid_value=False)
+        success_mask = self.history.get_success_mask()
+        feasible_mask = self.history.get_feasible_mask()
+
         pareto = dict()
         if self.history.num_objectives > 1:
             pareto["ref_point"] = self.history.ref_point
+            if (pareto["ref_point"] == None):
+                print("Please enter a reference point, or OpenBox can't draw hypervolume chart!\n")
+
             hypervolumes = self.history.compute_hypervolume(data_range='all')
             pareto["hv"] = [[idx, round(v, 3)] for idx, v in enumerate(hypervolumes)]
-            pareto["pareto_point"] = self.history.get_pareto_front().tolist()
+            pareto["pareto_point"] = self.history.get_pareto_front(lexsort=True).tolist()
+            pareto["pareto_point_feasible"] = y[feasible_mask & success_mask].tolist()
+            pareto["pareto_point_infeasible"] = y[(~feasible_mask) & success_mask].tolist()
             pareto["all_points"] = self.history.get_objectives(transform='none', warn_invalid_value=True).tolist()
 
         draw_data = {

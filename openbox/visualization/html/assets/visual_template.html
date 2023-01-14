@@ -111,7 +111,7 @@
                                 </script>
                                 <br>
                                 <script>
-                                    if (info.data["num_objectives"] > 1){
+                                    if (info.data["num_objectives"] > 1 && info.data["pareto_data"]["ref_point"] != null){
                                         document.write(
                                             "<div class=\"row\"><div class=\"col-md-6  col-lg-12\" id=\"pareto_hv\" style=\"height: 500px; width: 800px; zoom:1.25\"></div></div>"
                                         );
@@ -153,45 +153,47 @@
                                 <script>
                                     if(info.data['advance'] == true) {
                                         document.write(
-                                            "<div class=\"col-md-6  col-lg-12\" id=\"para_importance\" style=\"height: 500px; width: 650px; zoom:1.25\"></div>"
+                                            "<div class=\"col-md-6  col-lg-12\" id=\"para_importance\" style=\"height: 500px; width: 700px; zoom:1.25\"></div>"
                                         )
 
                                         if (info.data["num_constraints"] > 0){
                                             document.write(
-                                                "<br><div class=\"col-md-6  col-lg-12\" id=\"con_para_importance\" style=\"height: 500px; width: 650px; zoom:1.25\"></div>"
+                                                "<br><div class=\"col-md-6  col-lg-12\" id=\"con_para_importance\" style=\"height: 500px; width: 700px; zoom:1.25\"></div>"
                                             );
                                         }
-                                        var len = info.data["num_objectives"];
-                                        document.write(
-                                            "<div class=\"col-lg-2\"><select class=\"form-control\" onchange=\"selectObjs(this)\">"
-                                        );
-                                        for(var i = 0; i < len; i++){
-                                            document.write("<option value=\"obj");
-                                            document.write(i);
-                                            document.write("\">objective ");
-                                            document.write(i);
-                                            document.write("</option>");
-                                        }
-                                        document.write("</select></div>");
-                                        document.write(
-                                            "<div class=\"col-md-6  col-lg-12\" id=\"single_para_importance\" style=\"height: 500px; width: 650px; zoom:1.25\"></div>"
-                                        )
-                                        if (info.data["num_constraints"] > 0){
-                                            var len = info.data["num_constraints"];
+                                        if (info.data["importance_data"]["method"] == "shap"){
+                                            var len = info.data["num_objectives"];
                                             document.write(
-                                                "<div class=\"col-lg-2\"><select class=\"form-control\" onchange=\"selectCons(this)\">"
+                                                "<div class=\"col-lg-2\"><select class=\"form-control\" onchange=\"selectObjs(this)\">"
                                             );
                                             for(var i = 0; i < len; i++){
-                                                document.write("<option value=\"con");
+                                                document.write("<option value=\"obj");
                                                 document.write(i);
-                                                document.write("\">constraint ");
+                                                document.write("\">objective ");
                                                 document.write(i);
                                                 document.write("</option>");
                                             }
                                             document.write("</select></div>");
                                             document.write(
-                                                "<br><div class=\"col-md-6  col-lg-12\" id=\"con_single_para_importance\" style=\"height: 500px; width: 650px; zoom:1.25\"></div>"
-                                            );
+                                                "<div class=\"col-md-6  col-lg-12\" id=\"single_para_importance\" style=\"height: 500px; width: 700px; zoom:1.25\"></div>"
+                                            )
+                                            if (info.data["num_constraints"] > 0){
+                                                var len = info.data["num_constraints"];
+                                                document.write(
+                                                    "<div class=\"col-lg-2\"><select class=\"form-control\" onchange=\"selectCons(this)\">"
+                                                );
+                                                for(var i = 0; i < len; i++){
+                                                    document.write("<option value=\"con");
+                                                    document.write(i);
+                                                    document.write("\">constraint ");
+                                                    document.write(i);
+                                                    document.write("</option>");
+                                                }
+                                                document.write("</select></div>");
+                                                document.write(
+                                                    "<br><div class=\"col-md-6  col-lg-12\" id=\"con_single_para_importance\" style=\"height: 500px; width: 700px; zoom:1.25\"></div>"
+                                                );
+                                            }
                                         }
                                     }
                                     else {
@@ -483,7 +485,7 @@
         };
 
         // initialize the pareto hv line
-        if(data['num_objectives'] > 1) {
+        if(data['num_objectives'] > 1 && info.data["pareto_data"]["ref_point"] != null) {
             var pareto_hv_chart = echarts.init($('#pareto_hv')[0]);
             var pareto_hv_option = {
                 title:{
@@ -674,23 +676,6 @@
             var pareto_option;
             var pareto_list = data["pareto_data"]["pareto_point"];
 
-            var no_point = [];
-            var yes_point = [];
-
-            for(var j=0; j<data["pareto_data"]["all_points"].length; j++){
-                var flag = 1;
-                for (var i = 0; i < data['num_constraints']; i++) {
-                    if (data['cons_line_data'][i][j][1] > 0){
-                        flag = 0;
-                        break;
-                    }
-                }
-                if (flag == 1)
-                    yes_point.push(data["pareto_data"]["all_points"][j]);
-                else   
-                    no_point.push(data["pareto_data"]["all_points"][j]);
-            }
-
             pareto_list .sort(function(a,b){
                 return b[0]-a[0];
             });
@@ -720,12 +705,12 @@
                         smooth: true,
                     },
                     {
-                        data: yes_point,
+                        data: data["pareto_data"]["pareto_point_feasible"],
                         type: 'scatter',
                         symbol: 'circle'
                     },
                     {
-                        data: no_point,
+                        data: data["pareto_data"]["pareto_point_infeasible"],
                         type: 'scatter',
                         symbol: 'triangle'
                     },
@@ -857,14 +842,25 @@
                     name: key,
                     type: 'bar',
                     data: data["importance_data"]["data"][key],
-                    markPoint: {
-                        data: [
-                            {type: 'max', name: 'Max'},
-                            {type: 'min', name: 'Min'}
-                        ]
-                    },
+                    // markPoint: {
+                    //     data: [
+                    //         {type: 'max', name: 'Max'},
+                    //         {type: 'min', name: 'Min'}
+                    //     ]
+                    // },
                     markLine: {
                         data: [{type: 'average', name: 'Avg'}]
+                    },
+                    itemStyle:{
+                        normal:{
+                            label:{
+                                show: true,
+                                position: 'top',
+                                formatter: function(params){
+                                    return params.value.toFixed(6);
+                                }
+                            }
+                        }
                     }
                 }
                 )
@@ -888,7 +884,11 @@
                     {
                       type: 'category',
                       // prettier-ignore
-                      data: data["importance_data"]["x"]
+                      data: data["importance_data"]["x"],
+                      axisLabel: {
+                        interval: 0,
+                        show: true
+                      }
                     }
                   ],
                 yAxis: [
@@ -911,14 +911,25 @@
                             name: key,
                             type: 'bar',
                             data: data["importance_data"]["con_data"][key],
-                            markPoint: {
-                                data: [
-                                    {type: 'max', name: 'Max'},
-                                    {type: 'min', name: 'Min'}
-                                ]
-                            },
+                            // markPoint: {
+                            //     data: [
+                            //         {type: 'max', name: 'Max'},
+                            //         {type: 'min', name: 'Min'}
+                            //     ]
+                            // },
                             markLine: {
                                 data: [{type: 'average', name: 'Avg'}]
+                            },
+                            itemStyle:{
+                                normal:{
+                                    label:{
+                                        show: true,
+                                        position: 'top',
+                                        formatter: function(params){
+                                            return params.value.toFixed(6);
+                                        }
+                                    }
+                                }
                             }
                         }
                     )
@@ -940,7 +951,11 @@
                         top: '60'
                     },
                     xAxis: {
-                        data: data["importance_data"]["x"]
+                        data: data["importance_data"]["x"],
+                        axisLabel: {
+                        interval: 0,
+                        show: true
+                      }
                     },
                     yAxis: {},
                     series: series_data
@@ -951,7 +966,7 @@
         }
 
         // initialize the Single Parameter Importance Chart
-        if(data["importance_data"] != null) {
+        if(data["importance_data"] != null && data["importance_data"]["method"] == "shap") {
             let X = data["importance_data"]["X"];
             let para_num = data["importance_data"]["x"].length;
             let obj_shap_value = data["importance_data"]["obj_shap_value"];
@@ -1016,7 +1031,7 @@
 
 
         // initialize the Constraints Single Parameter Importance Chart
-        if (data["importance_data"] != null && data["num_constraints"] > 0){
+        if (data["importance_data"] != null && data["num_constraints"] > 0 && data["importance_data"]["method"] == "shap"){
             let X = data["importance_data"]["X"];
             let para_num = data["importance_data"]["x"].length;
             let con_shap_value = data["importance_data"]["con_shap_value"];

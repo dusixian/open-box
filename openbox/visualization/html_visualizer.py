@@ -38,6 +38,7 @@ class HTMLVisualizer(BaseVisualizer):
             time_limit_per_trial: int = None,
             surrogate_model: Union[AbstractModel, List[AbstractModel]] = None,
             constraint_models: List[AbstractModel] = None,
+            importance_method: str = 'shap',
     ):
         super().__init__()
         assert isinstance(logging_dir, str) and logging_dir != ''
@@ -74,6 +75,7 @@ class HTMLVisualizer(BaseVisualizer):
         self.html_path = None
         self.displayed_html_path = None
         self.json_path = None
+        self.importance_method = importance_method
 
         if self.advanced_analysis:
             self.check_dependency()
@@ -134,7 +136,7 @@ class HTMLVisualizer(BaseVisualizer):
             # importance data
             importance = self._cache_advanced_data.get('importance')
             if update_importance:
-                importance = self.generate_importance_data(method='shap')
+                importance = self.generate_importance_data(method=self.importance_method)
                 self._cache_advanced_data['importance'] = importance
             draw_data['importance_data'] = importance
             # verify surrogate data
@@ -277,10 +279,10 @@ class HTMLVisualizer(BaseVisualizer):
         }
         return draw_data
 
-    def generate_importance_data(self, method='shap'):
+    def generate_importance_data(self, method):
         try:
-            if method != 'shap':  # todo: add other methods, such as fanova
-                raise NotImplementedError('HTMLVisualizer only supports shap importance method currently!')
+            # if method != 'shap':  # todo: add other methods, such as fanova
+            #     raise NotImplementedError('HTMLVisualizer only supports shap importance method currently!')
 
             importance_dict = self.history.get_importance(method=method, return_dict=True)
             if importance_dict is None or importance_dict == {}:
@@ -291,17 +293,20 @@ class HTMLVisualizer(BaseVisualizer):
             X = self.history.get_config_array(transform='numerical')
             parameters = self.history.get_config_space().get_hyperparameter_names()
 
-            objective_shap_values = np.asarray(importance_dict['objective_shap_values']).tolist()
-            constraint_shap_values = np.asarray(importance_dict['constraint_shap_values']).tolist()
-
             importance = {
                 'X': X.tolist(),
                 'x': list(parameters),
+                'method': method,
                 'data': dict(),
-                'con_data': dict(),
-                'obj_shap_value': objective_shap_values,
-                'con_shap_value': constraint_shap_values,
-            }
+                'con_data': dict()
+             }
+            
+            
+            if method == 'shap':
+                objective_shap_values = np.asarray(importance_dict['objective_shap_values']).tolist()
+                constraint_shap_values = np.asarray(importance_dict['constraint_shap_values']).tolist()
+                importance['obj_shap_value'] = objective_shap_values
+                importance['con_shap_value'] = constraint_shap_values
 
             for key, value in objective_importance.items():
                 for i in range(len(value)):

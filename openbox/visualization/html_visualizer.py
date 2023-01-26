@@ -14,6 +14,7 @@ from openbox.surrogate.base.base_model import AbstractModel
 from openbox import space as sp
 from openbox.core.base import build_surrogate
 import openbox.visualization.html.assets as assets
+from sklearn.model_selection import KFold
 
 
 class HTMLVisualizer(BaseVisualizer):
@@ -343,8 +344,8 @@ class HTMLVisualizer(BaseVisualizer):
 
             from openbox.utils.config_space.util import convert_configurations_to_array
             # prepare object surrogate model data
-            X_all = self.history.get_config_array(transform='scale')
-            Y_all = self.history.get_objectives(transform='infeasible')
+            X = self.history.get_config_array(transform='scale')
+            Y = self.history.get_objectives(transform='infeasible')
 
             models = [build_surrogate(func_str=self.meta_data['surrogate_type'],
                                       config_space=self.config_space,
@@ -352,80 +353,68 @@ class HTMLVisualizer(BaseVisualizer):
                                       transfer_learning_history=self.transfer_learning_history)
                       for _ in range(self.history.num_objectives)]
 
-            pre_label_data, grade_data = self.verify_surrogate(X_all, Y_all, models)
+            pre_label_data, grade_data = self.verify_surrogate(X, Y, models)
 
             if self.history.num_constraints == 0:
                 return pre_label_data, grade_data, None
 
             # prepare constraint surrogate model data
-            cons_X_all = X_all
-            cons_Y_all = self.history.get_constraints(transform='bilog')
+            cons_X = X
+            cons_Y = self.history.get_constraints(transform='bilog')
             cons_models = [build_surrogate(func_str=self.meta_data['constraint_surrogate_type'],
                                            config_space=self.config_space,
                                            rng=self.rng) for _ in range(self.history.num_constraints)]
 
-            cons_pre_label_data, _ = self.verify_surrogate(cons_X_all, cons_Y_all, cons_models)
+            cons_pre_label_data, _ = self.verify_surrogate(cons_X, cons_Y, cons_models)
 
             return pre_label_data, grade_data, cons_pre_label_data
         except Exception:
             logger.exception('Exception in generating verify surrogate data!')
             return None, None, None
 
-    def verify_surrogate(self, X_all, Y_all, models):
+    def verify_surrogate(self, X, Y, models):
         assert models is not None
 
         # configuration number, obj/cons number
-        N, num_objectives = Y_all.shape
-        if X_all.shape[0] != N or N == 0:
+        N, num_objectives = Y.shape
+        if X.shape[0] != N or N == 0:
             logger.error('Invalid data shape for verify_surrogate!')
             return None, None
 
         # 10-fold validation
-        pre_perfs = [list() for i in range(num_objectives)]
-        interval = math.ceil(N / 10)
+        pred_Y = np.zeros((N, num_objectives))
+        ranks = np.zeros((N, num_objectives)).astype(int)
+        pre_ranks = np.zeros((N, num_objectives)).astype(int)
 
+        k = max(N, 10)
+        kf = KFold(n_splits=k, shuffle=True, random_state=1024)
         for i in range(num_objectives):
-            for j in range(0, 10):
-                X = np.concatenate((X_all[:j * interval, :], X_all[(j + 1) * interval:, :]), axis=0)
-                Y = np.concatenate((Y_all[:j * interval, i], Y_all[(j + 1) * interval:, i]))
-                tmp_model = copy.deepcopy(models[i])
-                tmp_model.train(X, Y)
+            for train_index, test_index in kf.split(X):
+                X_train, Y_train = X[train_index, :], Y[train_index, i]
+                X_test = X[test_index, :]
+                tmp_model = models[i]
+                tmp_model.train(X_train, Y_train)
 
-                test_X = X_all[j * interval:(j + 1) * interval, :]
-                pre_mean, pre_var = tmp_model.predict(test_X)
-                for tmp in pre_mean:
-                    pre_perfs[i].append(tmp[0])
+                pred_mean, _ = tmp_model.predict(X_test)
+                pred_Y[test_index, i] = pred_mean
 
-        ranks = [[0] * N for i in range(num_objectives)]
-        pre_ranks = [[0] * N for i in range(num_objectives)]
-        for i in range(num_objectives):
-            tmp = np.argsort(Y_all[:, i]).astype(int)
-            pre_tmp = np.argsort(pre_perfs[i]).astype(int)
+            rank = np.argsort(np.argsort(Y[:, i]))
+            pre_rank = np.argsort(np.argsort(pred_Y[:, i]))
+            ranks[:, i] = rank
+            pre_ranks[:, i] = pre_rank
 
-            for j in range(N):
-                ranks[i][tmp[j]] = j + 1
-                pre_ranks[i][pre_tmp[j]] = j + 1
-
-        min1 = float('inf')
-        max1 = -float('inf')
-        min_array = []
-        max_array = []
-        for i in range(num_objectives):
-            min1 = min(min1, round(min(min(pre_perfs[i]), min(Y_all[:, i])), 3))
-            max1 = max(max1, round(max(max(pre_perfs[i]), max(Y_all[:, i])), 3))
-            min_array.append(min(round(min(min(pre_perfs[i]), min(Y_all[:, i])), 3),0))
-            max_array.append(round(round(max(max(pre_perfs[i]), max(Y_all[:, i])), 3) * 1.1, 3))
-        min1 = min(min1, 0)
+        min_array = np.min(np.concatenate([Y, pred_Y], axis=0), axis=0)
+        max_array = np.max(np.concatenate([Y, pred_Y], axis=0), axis=0) * 1.1
+        min_array = np.round(min_array, 3)
+        max_array = np.round(max_array, 3)
 
         pre_label_data = {
-            'data': [list(zip(pre_perfs[i], Y_all[:, i])) for i in range(num_objectives)],
-            'min': min1,
-            'max': round(max1 * 1.1, 3),
-            'min_array' : list(min_array),
-            'max_array' : list(max_array)
+            'data': [list(zip(pred_Y[:, i].tolist(), Y[:, i].tolist())) for i in range(num_objectives)],
+            'min_array': list(min_array),
+            'max_array': list(max_array)
         }
         grade_data = {
-            'data': [list(zip(pre_ranks[i], ranks[i])) for i in range(num_objectives)],
+            'data': [list(zip(pre_ranks[:, i].tolist(), ranks[:, i].tolist())) for i in range(num_objectives)],
             'min': 0,
             'max': self.meta_data['max_iterations']
         }

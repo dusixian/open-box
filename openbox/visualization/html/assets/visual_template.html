@@ -1203,31 +1203,6 @@
         }
 
         function verify_surrogate_model() {
-            // var sur_markLineOpt1 = {
-            //     animation: false,
-            //     label: {
-            //         formatter: 'y = x',
-            //         align: 'right'
-            //     },
-            //     lineStyle: {
-            //         type: 'solid'
-            //     },
-            //     tooltip: {
-            //         formatter: 'y = x'
-            //     },
-            //     data: [
-            //         [
-            //             {
-            //                 coord: [data['pre_label_data']['min'], data['pre_label_data']['min']],
-            //                 symbol: 'none'
-            //             },
-            //             {
-            //                 coord: [data['pre_label_data']['max'], data['pre_label_data']['max']],
-            //                 symbol: 'none'
-            //             }
-            //         ]
-            //     ]
-            // };
             // initialize Predict-Label Scatter Chart
             var pre_label_chart = echarts.init($('#pre_label_scatter')[0]);
             var pre_label_option = {
@@ -1252,7 +1227,7 @@
                 dataZoom: mydataZoom,
                 xAxis: {
                     type: 'value',
-                    name: 'Predicted objective value',
+                    name: 'Predicted value',
                     boundaryGap: false,
                     nameLocation: 'center',
                     nameRotate: '0',
@@ -1399,7 +1374,7 @@
                 dataZoom: mydataZoom,
                 xAxis: {
                     type: 'value',
-                    name: 'Predicted objective value rank',
+                    name: 'Predicted value rank',
                     boundaryGap: false,
                     nameLocation: 'center',
                     nameRotate: '0',
@@ -1456,32 +1431,6 @@
         }
 
         function verify_cons_surrogate_model() {
-            var cons_sur_markLineOpt1 = {
-                animation: false,
-                label: {
-                    formatter: 'y = x',
-                    align: 'right'
-                },
-                lineStyle: {
-                    type: 'solid'
-                },
-                tooltip: {
-                    formatter: 'y = x'
-                },
-                data: [
-                    [
-                        {
-                            coord: [data['cons_pre_label_data']['min'], data['cons_pre_label_data']['min']],
-                            symbol: 'none'
-                        },
-                        {
-                            coord: [data['cons_pre_label_data']['max'], data['cons_pre_label_data']['max']],
-                            symbol: 'none'
-                        }
-                    ]
-                ]
-            };
-            // initialize Predict-Label Scatter Chart
             var cons_pre_label_chart = echarts.init($('#cons_pre_label_scatter')[0]);
             var cons_pre_label_option = {
                 title:{
@@ -1505,7 +1454,7 @@
                 dataZoom: mydataZoom,
                 xAxis: {
                     type: 'value',
-                    name: 'Predicted constraint value',
+                    name: 'Predicted value',
                     boundaryGap: false,
                     nameLocation: 'center',
                     nameRotate: '0',
@@ -1521,8 +1470,8 @@
                         //     type: 'solid'
                         // }
                     },
-                    min: data['cons_pre_label_data']['min'],
-                    max: data['cons_pre_label_data']['max']
+                    min: data['cons_pre_label_data']['min_array'][0],
+                    max: data['cons_pre_label_data']['max_array'][0],
                 },
                 yAxis: {
                     type: 'value',
@@ -1541,26 +1490,68 @@
                         //     type: 'solid'
                         // }
                     },
-                    min: data['cons_pre_label_data']['min'],
-                    max: data['cons_pre_label_data']['max']
+                    min: data['cons_pre_label_data']['min_array'][0],
+                    max: data['cons_pre_label_data']['max_array'][0],
                 },
                 series: [
 
                 ]
             }
-            for (var i = 0; i < data['num_objectives']; i++) {
+
+            for (var i = 0; i < data['num_constraints']; i++) {
                 cons_pre_label_option['series'].push(
                 {
                     name: 'cons ' + (i+1),
                     type: 'scatter',
                     color: '#50a3ba',
                     data: data['cons_pre_label_data']['data'][i],
-                    markLine: cons_sur_markLineOpt1
+                    markLine: {
+                        animation: false,
+                        label: {
+                            formatter: 'y = x',
+                            align: 'right'
+                        },
+                        lineStyle: {
+                            type: 'solid'
+                        },
+                        tooltip: {
+                            formatter: 'y = x'
+                        },
+                        data: [
+                            [
+                                {
+                                    coord: [data['cons_pre_label_data']['min_array'][i], data['cons_pre_label_data']['min_array'][i]],
+                                    symbol: 'none'
+                                },
+                                {
+                                    coord: [data['cons_pre_label_data']['max_array'][i], data['cons_pre_label_data']['max_array'][i]],
+                                    symbol: 'none'
+                                }
+                            ]
+                        ]
+                    },
                 })
                 if(i != 0) {
                     cons_pre_label_option['legend']['selected']['cons ' + (i+1)] = false;
                 }
             }
+
+            cons_pre_label_option && cons_pre_label_chart.setOption(cons_pre_label_option);
+
+            cons_pre_label_chart.on('legendselectchanged', function(params){
+                console.log(params);
+                for (var i = 0; i < data['num_objectives']; i++) {
+                    if (params.selected['cons ' + (i+1)]){
+                        cons_pre_label_option.xAxis.min = data['cons_pre_label_data']['min_array'][i]
+                        cons_pre_label_option.xAxis.max = data['cons_pre_label_data']['max_array'][i]
+                        cons_pre_label_option.yAxis.min = data['cons_pre_label_data']['min_array'][i]
+                        cons_pre_label_option.yAxis.max = data['cons_pre_label_data']['max_array'][i]
+                        break
+                    }
+                }
+                cons_pre_label_option['legend']['selected'] = params.selected
+                cons_pre_label_chart.setOption(cons_pre_label_option)
+            })
             cons_pre_label_option && cons_pre_label_chart.setOption(cons_pre_label_option);
 
 

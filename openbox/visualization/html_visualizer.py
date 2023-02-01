@@ -173,19 +173,15 @@ class HTMLVisualizer(BaseVisualizer):
         # todo: check if has invalid value
         # all_objectives = self.history.get_objectives(transform='none', warn_invalid_value=False)
         # all_constraints = self.history.get_constraints(transform='none', warn_invalid_value=False)
-        all_objectives = self.history.objectives
-        all_constraints = self.history.constraints
-        all_config_dicts = self.history.get_config_dicts()
-        all_trial_states = self.history.trial_states
-        all_elapsed_times = self.history.elapsed_times
-        for idx in range(len(self.history)):
-            results = [round(v, 6) for v in all_objectives[idx]]
+
+        for idx, obs in enumerate(self.history.observations):
+            results = [round(v, 6) for v in obs.objectives]
             constraints = None
             if self.history.num_constraints > 0:
-                constraints = [round(v, 6) for v in all_constraints[idx]]
+                constraints = [round(v, 6) for v in obs.constraints]
                 cons_list_rev.append(constraints)
 
-            config_dic = all_config_dicts[idx]
+            config_dic = obs.config.get_dictionary()
             config_str = str(config_dic)
             if len(config_str) > 35:
                 config_str = config_str[1:35]
@@ -193,14 +189,12 @@ class HTMLVisualizer(BaseVisualizer):
                 config_str = config_str[1:-1]
 
             table_list.append(
-                [idx + 1, results, constraints, config_dic, config_str, all_trial_states[idx],
-                 round(all_elapsed_times[idx], 3)])
+                [idx + 1, results, constraints, config_dic, config_str, obs.trial_state,
+                 round(obs.elapsed_time, 3)])
 
             # rh_config[str(idx + 1)] = config_dic
 
-            config_values = []
-            for parameter in config_dic.keys():
-                config_values.append(config_dic[parameter])
+            config_values = list(config_dic.values())
 
             for i in range(self.history.num_objectives):
                 option['data'][i].append(config_values + [results[i]])
@@ -258,7 +252,7 @@ class HTMLVisualizer(BaseVisualizer):
         pareto = dict()
         if self.history.num_objectives > 1:
             pareto["ref_point"] = self.history.ref_point
-            if (pareto["ref_point"] == None):
+            if pareto["ref_point"] is None:
                 print("Please enter a reference point, or OpenBox can't draw hypervolume chart!\n")
 
             hypervolumes = self.history.compute_hypervolume(data_range='all')
@@ -311,8 +305,7 @@ class HTMLVisualizer(BaseVisualizer):
                 'data': dict(),
                 'con_data': dict()
              }
-            
-            
+
             if method == 'shap':
                 objective_shap_values = np.asarray(importance_dict['objective_shap_values']).tolist()
                 constraint_shap_values = np.asarray(importance_dict['constraint_shap_values']).tolist()

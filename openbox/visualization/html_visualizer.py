@@ -15,6 +15,7 @@ from openbox import space as sp
 from openbox.core.base import build_surrogate
 import openbox.visualization.html.assets as assets
 from sklearn.model_selection import KFold
+from scipy.stats import rankdata
 
 
 class HTMLVisualizer(BaseVisualizer):
@@ -161,7 +162,7 @@ class HTMLVisualizer(BaseVisualizer):
         # # all the config list
         # rh_config = {}
         # Parallel Data
-        option = {'data': [list() for i in range(self.history.num_objectives)], 'schema': [], 'visualMap': {}}
+        option = {'data': [], 'schema': [], 'visualMap': {}}
         # all the performance
         perf_list = [list() for i in range(self.history.num_objectives)]
         # all the constraints, A[i][j]: value of constraint i, configuration j
@@ -196,8 +197,7 @@ class HTMLVisualizer(BaseVisualizer):
 
             config_values = list(config_dic.values())
 
-            for i in range(self.history.num_objectives):
-                option['data'][i].append(config_values + [results[i]])
+            option['data'].append(constraints + results + config_values + [idx + 1])
 
             for i in range(self.history.num_objectives):
                 perf_list[i].append(results[i])
@@ -207,14 +207,12 @@ class HTMLVisualizer(BaseVisualizer):
 
         if len(self.history) > 0:
             parameters = self.history.get_config_space().get_hyperparameter_names()
-            option['schema'] = list(parameters) + ['perf']
-            mi = float('inf')
-            ma = -float('inf')
-            for i in range(self.history.num_objectives):
-                mi = min(mi, np.percentile(perf_list[i], 0))
-                ma = max(ma, np.percentile(perf_list[i], 90))
-            option['visualMap']['min'] = mi
-            option['visualMap']['max'] = ma
+            option['schema'] = ['Cons ' + str(i+1) for i in range(self.history.num_constraints)] \
+                               + ['Objs ' + str(i+1) for i in range(self.history.num_objectives)] \
+                               + list(parameters) + ['Uid']
+
+            option['visualMap']['min'] = 1
+            option['visualMap']['max'] = len(self.history)
             option['visualMap']['dimension'] = len(option['schema']) - 1
         else:
             option['visualMap']['min'] = 0
@@ -232,14 +230,14 @@ class HTMLVisualizer(BaseVisualizer):
             for idx, perf in enumerate(perf_list[i]):
                 if self.history.num_constraints > 0 and np.any(
                         [cons_list_rev[idx][k] > 0 for k in range(self.history.num_constraints)]):
-                    line_data[i]['no'].append([idx, perf])
+                    line_data[i]['no'].append([idx + 1, perf])
                     continue
                 if perf <= min_value:
                     min_value = perf
-                    line_data[i]['ok'].append([idx, perf])
+                    line_data[i]['ok'].append([idx + 1, perf])
                 else:
-                    line_data[i]['other'].append([idx, perf])
-            line_data[i]['ok'].append([len(option['data'][i]), min_value])
+                    line_data[i]['other'].append([idx + 1, perf])
+            # line_data[i]['ok'].append([len(option['data'][i]), min_value])
 
         # Pareto data
         # todo: if ref_point is None?
@@ -253,10 +251,11 @@ class HTMLVisualizer(BaseVisualizer):
         if self.history.num_objectives > 1:
             pareto["ref_point"] = self.history.ref_point
             if pareto["ref_point"] is None:
+                pareto["hv"] = None
                 print("Please enter a reference point, or OpenBox can't draw hypervolume chart!\n")
-
-            hypervolumes = self.history.compute_hypervolume(data_range='all')
-            pareto["hv"] = [[idx, round(v, 3)] for idx, v in enumerate(hypervolumes)]
+            else:
+                hypervolumes = self.history.compute_hypervolume(data_range='all')
+                pareto["hv"] = [[idx + 1, round(v, 3)] for idx, v in enumerate(hypervolumes)]
             pareto["pareto_point"] = self.history.get_pareto_front(lexsort=True).tolist()
             pareto["pareto_point_feasible"] = y[feasible_mask & success_mask].tolist()
             pareto["pareto_point_infeasible"] = y[(~feasible_mask) & success_mask].tolist()
@@ -266,7 +265,7 @@ class HTMLVisualizer(BaseVisualizer):
             'num_objectives': self.history.num_objectives, 'num_constraints': self.history.num_constraints,
             'advance': self.advanced_analysis,
             'line_data': line_data,
-            'cons_line_data': [[[idx, con] for idx, con in enumerate(c_l)] for c_l in cons_list],
+            'cons_line_data': [[[idx + 1, con] for idx, con in enumerate(c_l)] for c_l in cons_list],
             'cons_list_rev': cons_list_rev,
             'parallel_data': option, 'table_list': table_list,
             'pareto_data': pareto,
@@ -304,7 +303,7 @@ class HTMLVisualizer(BaseVisualizer):
                 'method': method,
                 'data': dict(),
                 'con_data': dict()
-             }
+            }
 
             if method == 'shap':
                 objective_shap_values = np.asarray(importance_dict['objective_shap_values']).tolist()
@@ -389,10 +388,10 @@ class HTMLVisualizer(BaseVisualizer):
                 tmp_model.train(X_train, Y_train)
 
                 pred_mean, _ = tmp_model.predict(X_test)
-                pred_Y[test_index, i:i+1] = pred_mean
+                pred_Y[test_index, i:i + 1] = pred_mean
 
-            rank = np.argsort(np.argsort(Y[:, i]))
-            pre_rank = np.argsort(np.argsort(pred_Y[:, i]))
+            rank = rankdata(Y[:, i], method='min')
+            pre_rank = rankdata(pred_Y[:, i], method='min')
             ranks[:, i] = rank
             pre_ranks[:, i] = pre_rank
 

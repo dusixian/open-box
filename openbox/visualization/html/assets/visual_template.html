@@ -337,6 +337,7 @@
             }
         };
 
+
         var mydataZoom = [
             {
                 type: 'slider',
@@ -350,6 +351,21 @@
                 start: 0,
                 end: 100
             },
+            {
+                type: 'slider',
+                orient: 'vertical',
+                yAxisIndex: 0,
+                start: 0,
+                end: 100
+            },
+            {
+                type: 'inside',
+                orient: 'vertical',
+                yAxisIndex: 0,
+                start: 0,
+                end: 100
+            },
+
         ]
 
 
@@ -393,19 +409,26 @@
             parallel: {
                 top: 100
             },
-            legend: {
-                left: 10,
-                top: 50,
-                'selected': {}
-            },
             visualMap: {
-                show: true,
+                show: false,
                 inRange: {
                     color: ['#d94e5d', '#eac736', '#50a3ba'],
-                }
+                },
+                min: data["parallel_data"]['visualMap']['min'],
+                max: data["parallel_data"]['visualMap']['max'],
+                dimension: data["parallel_data"]['visualMap']['dimension']
             },
 
             series: [
+                {
+                    name: 'obj ' + (i+1),
+                    type: 'parallel',
+                    smooth: true,
+                    lineStyle: lineStyle,
+                    inactiveOpacity: 0.1,
+                    activeOpacity: 1,
+                    data: data["parallel_data"]['data']
+                }
             ]
         };
 
@@ -670,7 +693,7 @@
             cons_line_option && cons_line_chart.setOption(cons_line_option);
         }
 
-
+        // initialize Pareto preface Chart
         if (data["num_objectives"] == 2){
             var pareto_chart = echarts.init($('#pareto_front')[0]);
             var pareto_option;
@@ -1117,26 +1140,7 @@
             });
 
             parallel_coordinates_option['parallelAxis'] = parallel_parallelAxis;
-            console.log(parallel_coordinates_option)
-            for (var i = 0; i < data['num_objectives']; i++) {
-                parallel_coordinates_option['series'].push(
-                {
-                    name: 'obj ' + (i+1),
-                    type: 'parallel',
-                    lineStyle: lineStyle,
-                    inactiveOpacity: 0.1,
-                    activeOpacity: 1,
-                    data: parallel_option['data'][i]
-                })
-                if(i != 0) {
-                    parallel_coordinates_option['legend']['selected']['obj ' + (i+1)] = false;
-                }
-            }
 
-
-            parallel_coordinates_option['visualMap']['min'] = parallel_option['visualMap']['min'];
-            parallel_coordinates_option['visualMap']['max'] = parallel_option['visualMap']['max'];
-            parallel_coordinates_option['visualMap']['dimension'] = parallel_option['visualMap']['dimension'];
             parallel_coordinates_option && parallel_coordinates_chart.setOption(parallel_coordinates_option);
 
             for (var i = 0; i < data['num_objectives']; i++) {

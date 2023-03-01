@@ -2,9 +2,6 @@ import os
 import re
 from datetime import datetime
 import json
-import math
-import copy
-import importlib.resources as res
 from typing import List, Union
 import numpy as np
 from openbox import logger
@@ -13,7 +10,6 @@ from openbox.visualization.base_visualizer import BaseVisualizer
 from openbox.surrogate.base.base_model import AbstractModel
 from openbox import space as sp
 from openbox.core.base import build_surrogate
-import openbox.visualization.html.assets as assets
 from sklearn.model_selection import KFold
 from scipy.stats import rankdata
 
@@ -21,6 +17,7 @@ from scipy.stats import rankdata
 class HTMLVisualizer(BaseVisualizer):
     _default_advanced_analysis_options = dict(
         importance_update_interval=5,
+        importance_method='shap'
     )
 
     def __init__(
@@ -40,7 +37,6 @@ class HTMLVisualizer(BaseVisualizer):
             time_limit_per_trial: int = None,
             surrogate_model: Union[AbstractModel, List[AbstractModel]] = None,
             constraint_models: List[AbstractModel] = None,
-            importance_method: str = 'shap',
     ):
         super().__init__()
         assert isinstance(logging_dir, str) and logging_dir != ''
@@ -77,7 +73,6 @@ class HTMLVisualizer(BaseVisualizer):
         self.html_path = None
         self.displayed_html_path = None
         self.json_path = None
-        self.importance_method = importance_method
 
         if self.advanced_analysis:
             self.check_dependency()
@@ -138,15 +133,15 @@ class HTMLVisualizer(BaseVisualizer):
             # importance data
             importance = self._cache_advanced_data.get('importance')
             if update_importance:
-                importance = self.generate_importance_data(method=self.importance_method)
+                importance = self.generate_importance_data(method=self.advanced_analysis_options['importance_method'])
                 self._cache_advanced_data['importance'] = importance
             draw_data['importance_data'] = importance
             # verify surrogate data
             if verify_surrogate:
-                pre_label_data, grade_data, cons_pre_label_data = self.generate_verify_surrogate_data()
-                draw_data['pre_label_data'] = pre_label_data
+                pred_label_data, grade_data, cons_pred_label_data = self.generate_verify_surrogate_data()
+                draw_data['pred_label_data'] = pred_label_data
                 draw_data['grade_data'] = grade_data
-                draw_data['cons_pre_label_data'] = cons_pre_label_data
+                draw_data['cons_pred_label_data'] = cons_pred_label_data
 
             # save data to json file
             with open(self.json_path, 'w') as fp:
@@ -170,11 +165,7 @@ class HTMLVisualizer(BaseVisualizer):
         # A[i][j]: value of configuration i, constraint j
         cons_list_rev = list()
 
-        # todo: use observations
         # todo: check if has invalid value
-        # all_objectives = self.history.get_objectives(transform='none', warn_invalid_value=False)
-        # all_constraints = self.history.get_constraints(transform='none', warn_invalid_value=False)
-
         for idx, obs in enumerate(self.history.observations):
             results = [round(v, 6) for v in obs.objectives]
             constraints = None
@@ -193,8 +184,6 @@ class HTMLVisualizer(BaseVisualizer):
                 [idx + 1, results, constraints, config_dic, config_str, obs.trial_state,
                  round(obs.elapsed_time, 3)])
 
-            # rh_config[str(idx + 1)] = config_dic
-
             config_values = list(config_dic.values())
 
             option['data'].append(constraints + results + config_values + [idx + 1])
@@ -207,12 +196,14 @@ class HTMLVisualizer(BaseVisualizer):
 
         if len(self.history) > 0:
             parameters = self.history.get_config_space().get_hyperparameter_names()
+
             option['schema'] = ['Cons ' + str(i+1) for i in range(self.history.num_constraints)] \
                                + ['Objs ' + str(i+1) for i in range(self.history.num_objectives)] \
                                + list(parameters) + ['Uid']
 
             option['visualMap']['min'] = 1
             option['visualMap']['max'] = len(self.history)
+
             option['visualMap']['dimension'] = len(option['schema']) - 1
         else:
             option['visualMap']['min'] = 0
@@ -220,16 +211,14 @@ class HTMLVisualizer(BaseVisualizer):
             option['visualMap']['dimension'] = 0
 
         # Line Data
-        # ok: fits the constraint, and at the bottom.
-        # no：not fits the constraint.
-        # other：fits the constraint, not at the bottom
-        line_data = [{'ok': [], 'no': [], 'other': []} for i in range(self.history.num_objectives)]
+        line_data = [{'best': [], 'infeasible': [], 'feasible': []} for i in range(self.history.num_objectives)]
 
         for i in range(self.history.num_objectives):
             min_value = float("inf")
             for idx, perf in enumerate(perf_list[i]):
                 if self.history.num_constraints > 0 and np.any(
                         [cons_list_rev[idx][k] > 0 for k in range(self.history.num_constraints)]):
+
                     line_data[i]['no'].append([idx + 1, perf])
                     continue
                 if perf <= min_value:
@@ -242,7 +231,6 @@ class HTMLVisualizer(BaseVisualizer):
         # Pareto data
         # todo: if ref_point is None?
         # todo: if has invalid value?
-
         y = self.history.get_objectives(transform='none', warn_invalid_value=False)
         success_mask = self.history.get_success_mask()
         feasible_mask = self.history.get_feasible_mask()
@@ -256,6 +244,7 @@ class HTMLVisualizer(BaseVisualizer):
             else:
                 hypervolumes = self.history.compute_hypervolume(data_range='all')
                 pareto["hv"] = [[idx + 1, round(v, 3)] for idx, v in enumerate(hypervolumes)]
+
             pareto["pareto_point"] = self.history.get_pareto_front(lexsort=True).tolist()
             pareto["pareto_point_feasible"] = y[feasible_mask & success_mask].tolist()
             pareto["pareto_point_infeasible"] = y[(~feasible_mask) & success_mask].tolist()
@@ -277,17 +266,14 @@ class HTMLVisualizer(BaseVisualizer):
                                self.meta_data['time_limit_per_trial']]
             },
             'importance_data': None,
-            'pre_label_data': None,
+            'pred_label_data': None,
             'grade_data': None,
-            'cons_pre_label_data': None
+            'cons_pred_label_data': None
         }
         return draw_data
 
     def generate_importance_data(self, method):
         try:
-            # if method != 'shap':  # todo: add other methods, such as fanova
-            #     raise NotImplementedError('HTMLVisualizer only supports shap importance method currently!')
-
             importance_dict = self.history.get_importance(method=method, return_dict=True)
             if importance_dict is None or importance_dict == {}:
                 return None
@@ -345,10 +331,10 @@ class HTMLVisualizer(BaseVisualizer):
                                       transfer_learning_history=self.transfer_learning_history)
                       for _ in range(self.history.num_objectives)]
 
-            pre_label_data, grade_data = self.verify_surrogate(X, Y, models)
+            pred_label_data, grade_data = self.verify_surrogate(X, Y, models)
 
             if self.history.num_constraints == 0:
-                return pre_label_data, grade_data, None
+                return pred_label_data, grade_data, None
 
             # prepare constraint surrogate model data
             cons_X = X
@@ -357,9 +343,9 @@ class HTMLVisualizer(BaseVisualizer):
                                            config_space=self.config_space,
                                            rng=self.rng) for _ in range(self.history.num_constraints)]
 
-            cons_pre_label_data, _ = self.verify_surrogate(cons_X, cons_Y, cons_models)
+            cons_pred_label_data, _ = self.verify_surrogate(cons_X, cons_Y, cons_models)
 
-            return pre_label_data, grade_data, cons_pre_label_data
+            return pred_label_data, grade_data, cons_pred_label_data
         except Exception:
             logger.exception('Exception in generating verify surrogate data!')
             return None, None, None
@@ -373,12 +359,12 @@ class HTMLVisualizer(BaseVisualizer):
             logger.error('Invalid data shape for verify_surrogate!')
             return None, None
 
-        # 10-fold validation
+        # cross validation
         pred_Y = np.zeros((N, num_objectives))
         ranks = np.zeros((N, num_objectives)).astype(int)
-        pre_ranks = np.zeros((N, num_objectives)).astype(int)
+        pred_ranks = np.zeros((N, num_objectives)).astype(int)
 
-        k = min(N, 10)
+        k = min(N, 5)
         kf = KFold(n_splits=k, shuffle=True, random_state=1024)
         for i in range(num_objectives):
             for train_index, test_index in kf.split(X):
@@ -390,28 +376,31 @@ class HTMLVisualizer(BaseVisualizer):
                 pred_mean, _ = tmp_model.predict(X_test)
                 pred_Y[test_index, i:i + 1] = pred_mean
 
+
             rank = rankdata(Y[:, i], method='min')
-            pre_rank = rankdata(pred_Y[:, i], method='min')
+            pred_rank = rankdata(pred_Y[:, i], method='min')
+
             ranks[:, i] = rank
-            pre_ranks[:, i] = pre_rank
+            pred_ranks[:, i] = pred_rank
 
         min_array = np.min(np.concatenate([Y, pred_Y], axis=0), axis=0)
-        max_array = np.max(np.concatenate([Y, pred_Y], axis=0), axis=0) * 1.1
-        min_array = np.round(min_array, 3)
-        max_array = np.round(max_array, 3)
+        max_array = np.max(np.concatenate([Y, pred_Y], axis=0), axis=0)
+        interval = (max_array - min_array) * 0.05
+        min_array = np.round(min_array - interval, 3)
+        max_array = np.round(max_array + interval, 3)
 
-        pre_label_data = {
+        pred_label_data = {
             'data': [list(zip(pred_Y[:, i].tolist(), Y[:, i].tolist())) for i in range(num_objectives)],
-            'min_array': list(min_array),
-            'max_array': list(max_array)
+            'min_array': min_array.tolist(),
+            'max_array': max_array.tolist(),
         }
         grade_data = {
-            'data': [list(zip(pre_ranks[:, i].tolist(), ranks[:, i].tolist())) for i in range(num_objectives)],
+            'data': [list(zip(pred_ranks[:, i].tolist(), ranks[:, i].tolist())) for i in range(num_objectives)],
             'min': 0,
-            'max': self.meta_data['max_iterations']
+            'max': len(self.history),
         }
 
-        return pre_label_data, grade_data
+        return pred_label_data, grade_data
 
     def generate_html(self):
         try:
@@ -423,8 +412,8 @@ class HTMLVisualizer(BaseVisualizer):
             visual_static_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'html/assets/static')
             template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'html/assets/visual_template.html')
 
-            datafile = res.open_text(assets, 'visual_template.html', encoding='utf-8', errors='strict')
-            html_text = datafile.read()
+            with open(template_path, 'r', encoding='utf-8') as f:
+                html_text = f.read()
 
             link1_path = os.path.join(static_path, 'vendor/bootstrap/css/bootstrap.min.css')
             html_text = re.sub("<link rel=\"stylesheet\" href=\"../static/vendor/bootstrap/css/bootstrap.min.css\">",
@@ -439,8 +428,10 @@ class HTMLVisualizer(BaseVisualizer):
             html_text = re.sub("<link rel=\"stylesheet\" href=\"../static/css/custom.css\">",
                                "<link rel=\"stylesheet\" href=" + repr(link3_path) + ">", html_text)
 
+            relative_json_path = os.path.basename(self.json_path)
             html_text = re.sub("<script type=\"text/javascript\" src='json_path'></script>",
-                               "<script type=\"text/javascript\" src=" + repr(self.json_path) + "></script>", html_text)
+                               "<script type=\"text/javascript\" src=" + repr(relative_json_path) + "></script>",
+                               html_text)
 
             script1_path = os.path.join(static_path, 'vendor/jquery/jquery.min.js')
             html_text = re.sub("<script src=\"../static/vendor/jquery/jquery.min.js\"></script>",

@@ -379,7 +379,7 @@ class HTMLVisualizer(BaseVisualizer):
         ranks = np.zeros((N, num_objectives)).astype(int)
         pre_ranks = np.zeros((N, num_objectives)).astype(int)
 
-        k = max(N, 10)
+        k = min(N, 10)
         kf = KFold(n_splits=k, shuffle=True, random_state=1024)
         for i in range(num_objectives):
             for train_index, test_index in kf.split(X):
@@ -389,7 +389,7 @@ class HTMLVisualizer(BaseVisualizer):
                 tmp_model.train(X_train, Y_train)
 
                 pred_mean, _ = tmp_model.predict(X_test)
-                pred_Y[test_index, i] = pred_mean
+                pred_Y[test_index, i:i+1] = pred_mean
 
             rank = np.argsort(np.argsort(Y[:, i]))
             pre_rank = np.argsort(np.argsort(pred_Y[:, i]))

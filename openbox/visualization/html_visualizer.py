@@ -219,13 +219,13 @@ class HTMLVisualizer(BaseVisualizer):
                 if self.history.num_constraints > 0 and np.any(
                         [cons_list_rev[idx][k] > 0 for k in range(self.history.num_constraints)]):
 
-                    line_data[i]['no'].append([idx + 1, perf])
+                    line_data[i]['infeasible'].append([idx + 1, perf])
                     continue
                 if perf <= min_value:
                     min_value = perf
-                    line_data[i]['ok'].append([idx + 1, perf])
+                    line_data[i]['best'].append([idx + 1, perf])
                 else:
-                    line_data[i]['other'].append([idx + 1, perf])
+                    line_data[i]['feasible'].append([idx + 1, perf])
             # line_data[i]['ok'].append([len(option['data'][i]), min_value])
 
         # Pareto data

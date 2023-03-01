@@ -126,7 +126,7 @@
                                 <script>
                                     if(info.data['advance'] == true) {
                                         document.write(
-                                            "<div class=\"row\"><div class=\"col-md-6  col-lg-12\" id=\"pre_label_scatter\" style=\"height: 500px; width: 650px; zoom:1.25\"></div></div>"
+                                            "<div class=\"row\"><div class=\"col-md-6  col-lg-12\" id=\"pred_label_scatter\" style=\"height: 500px; width: 650px; zoom:1.25\"></div></div>"
                                         )
                                         document.write("<br>")
                                         document.write(
@@ -135,7 +135,7 @@
                                         document.write("<br>")
                                         if (info.data["num_constraints"] > 0){
                                             document.write(
-                                                "<br><div class=\"row\"><div class=\"col-md-6  col-lg-12\" id=\"cons_pre_label_scatter\" style=\"height: 500px; width: 650px; zoom:1.25\"></div></div>"
+                                                "<br><div class=\"row\"><div class=\"col-md-6  col-lg-12\" id=\"cons_pred_label_scatter\" style=\"height: 500px; width: 650px; zoom:1.25\"></div></div>"
                                             );
                                         }
                                     }
@@ -170,7 +170,7 @@
                                                 document.write("<option value=\"obj");
                                                 document.write(i);
                                                 document.write("\">objective ");
-                                                document.write(i);
+                                                document.write((i+1).toString());
                                                 document.write("</option>");
                                             }
                                             document.write("</select></div>");
@@ -186,7 +186,7 @@
                                                     document.write("<option value=\"con");
                                                     document.write(i);
                                                     document.write("\">constraint ");
-                                                    document.write(i);
+                                                    document.write((i+1).toString());
                                                     document.write("</option>");
                                                 }
                                                 document.write("</select></div>");
@@ -211,11 +211,11 @@
                                     <thead>
                                         <tr>
                                             <th> Index </th>
-                                            <th> Result </th>
-                                            <th> Constraint </th>
+                                            <th> Objectives </th>
+                                            <th> Constraints </th>
                                             <th> Configuration </th>
                                             <th> Status </th>
-                                            <th> Cost </th>
+                                            <th> Time </th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -463,7 +463,7 @@
             },
             yAxis: {
                 type: 'value',
-                name: 'Min objective value after n iterations',
+                name: 'Min objective value',
                 nameLocation: 'center',
                 nameRotate: '90',
                 nameTextStyle: {
@@ -527,7 +527,7 @@
                 },
                 yAxis: {
                     type: 'value',
-                    name: 'Pareto frontier hypervolume value',
+                    name: 'Hypervolume',
                     nameLocation: 'center',
                     nameRotate: '90',
                     min: 'dataMin',
@@ -546,7 +546,7 @@
                 },
                 series: [
                     {
-                        name: 'pareto hv',
+                        name: 'hypervolume',
                         type: 'line',
                         smooth: false,
                         color: '#4fbfa8',
@@ -634,7 +634,7 @@
                 },
                 yAxis: {
                     type: 'value',
-                    name: ' Constraint value after n iterations',
+                    name: ' Constraint value',
                     nameLocation: 'center',
                     nameRotate: '90',
                     nameTextStyle: {
@@ -702,7 +702,7 @@
                     {
                         data: pareto_list,
                         type: 'line',
-                        smooth: true,
+                        smooth: false,
                     },
                     {
                         data: data["pareto_data"]["pareto_point_feasible"],
@@ -823,10 +823,10 @@
 
 
 
-        if(data['pre_label_data'] != null) {
+        if(data['pred_label_data'] != null) {
             verify_surrogate_model();
         }
-        if(data['cons_pre_label_data'] != null) {
+        if(data['cons_pred_label_data'] != null) {
             verify_cons_surrogate_model();
         }
 
@@ -1146,20 +1146,20 @@
                     smooth: false,
                     symbol: 'circle',
                     symbolSize: '10',
-                    data: data['line_data'][i]['ok']
+                    data: data['line_data'][i]['best']
                 })
                 line_option['series'].push({
                     name: 'obj ' + (i+1),
                     type: 'scatter',
                     color: 'grey',
-                    data: data['line_data'][i]['other']
+                    data: data['line_data'][i]['feasible']
                 })
                 line_option['series'].push({
                     name: 'obj ' + (i+1),
                     type: 'scatter',
                     color: 'grey',
                     symbol: 'triangle',
-                    data: data['line_data'][i]['no']
+                    data: data['line_data'][i]['infeasible']
                 })
                 if(i != 0) {
                     line_option['legend']['selected']['obj ' + (i+1)] = false;
@@ -1204,8 +1204,8 @@
 
         function verify_surrogate_model() {
             // initialize Predict-Label Scatter Chart
-            var pre_label_chart = echarts.init($('#pre_label_scatter')[0]);
-            var pre_label_option = {
+            var pred_label_chart = echarts.init($('#pred_label_scatter')[0]);
+            var pred_label_option = {
                 title:{
                     text: 'Predicted Objective Value',
                 },
@@ -1243,8 +1243,8 @@
                         //     type: 'solid'
                         // }
                     },
-                    min: data['pre_label_data']['min_array'][0],
-                    max: data['pre_label_data']['max_array'][0],
+                    min: data['pred_label_data']['min_array'][0],
+                    max: data['pred_label_data']['max_array'][0],
                 },
                 yAxis: {
                     type: 'value',
@@ -1263,8 +1263,8 @@
                         //     type: 'solid'
                         // }
                     },
-                    min: data['pre_label_data']['min_array'][0],
-                    max: data['pre_label_data']['max_array'][0],
+                    min: data['pred_label_data']['min_array'][0],
+                    max: data['pred_label_data']['max_array'][0],
                 },
                 series: [
 
@@ -1272,12 +1272,12 @@
             }
 
             for (var i = 0; i < data['num_objectives']; i++) {
-                pre_label_option['series'].push(
+                pred_label_option['series'].push(
                 {
                     name: 'obj ' + (i+1),
                     type: 'scatter',
                     color: '#50a3ba',
-                    data: data['pre_label_data']['data'][i],
+                    data: data['pred_label_data']['data'][i],
                     markLine: {
                         animation: false,
                         label: {
@@ -1293,11 +1293,11 @@
                         data: [
                             [
                                 {
-                                    coord: [data['pre_label_data']['min_array'][i], data['pre_label_data']['min_array'][i]],
+                                    coord: [data['pred_label_data']['min_array'][i], data['pred_label_data']['min_array'][i]],
                                     symbol: 'none'
                                 },
                                 {
-                                    coord: [data['pre_label_data']['max_array'][i], data['pre_label_data']['max_array'][i]],
+                                    coord: [data['pred_label_data']['max_array'][i], data['pred_label_data']['max_array'][i]],
                                     symbol: 'none'
                                 }
                             ]
@@ -1305,24 +1305,24 @@
                     },
                 })
                 if(i != 0) {
-                    pre_label_option['legend']['selected']['obj ' + (i+1)] = false;
+                    pred_label_option['legend']['selected']['obj ' + (i+1)] = false;
                 }
             }
 
-            pre_label_option && pre_label_chart.setOption(pre_label_option);
+            pred_label_option && pred_label_chart.setOption(pred_label_option);
 
-            pre_label_chart.on('legendselectchanged', function(params){
+            pred_label_chart.on('legendselectchanged', function(params){
                 console.log(params);
                 for (var i = 0; i < data['num_objectives']; i++) {
                     if (params.selected['obj ' + (i+1)]){
-                        pre_label_option.xAxis.min = data['pre_label_data']['min_array'][i]
-                        pre_label_option.xAxis.max = data['pre_label_data']['max_array'][i]
-                        pre_label_option.yAxis.min = data['pre_label_data']['min_array'][i]
-                        pre_label_option.yAxis.max = data['pre_label_data']['max_array'][i]
+                        pred_label_option.xAxis.min = data['pred_label_data']['min_array'][i]
+                        pred_label_option.xAxis.max = data['pred_label_data']['max_array'][i]
+                        pred_label_option.yAxis.min = data['pred_label_data']['min_array'][i]
+                        pred_label_option.yAxis.max = data['pred_label_data']['max_array'][i]
                     }
                 }
-                pre_label_option['legend']['selected'] = params.selected
-                pre_label_chart.setOption(pre_label_option)
+                pred_label_option['legend']['selected'] = params.selected
+                pred_label_chart.setOption(pred_label_option)
             })
 
             var sur_markLineOpt2 = {
@@ -1431,8 +1431,8 @@
         }
 
         function verify_cons_surrogate_model() {
-            var cons_pre_label_chart = echarts.init($('#cons_pre_label_scatter')[0]);
-            var cons_pre_label_option = {
+            var cons_pred_label_chart = echarts.init($('#cons_pred_label_scatter')[0]);
+            var cons_pred_label_option = {
                 title:{
                     text: 'Predicted Constraint Value',
                 },
@@ -1470,8 +1470,8 @@
                         //     type: 'solid'
                         // }
                     },
-                    min: data['cons_pre_label_data']['min_array'][0],
-                    max: data['cons_pre_label_data']['max_array'][0],
+                    min: data['cons_pred_label_data']['min_array'][0],
+                    max: data['cons_pred_label_data']['max_array'][0],
                 },
                 yAxis: {
                     type: 'value',
@@ -1490,8 +1490,8 @@
                         //     type: 'solid'
                         // }
                     },
-                    min: data['cons_pre_label_data']['min_array'][0],
-                    max: data['cons_pre_label_data']['max_array'][0],
+                    min: data['cons_pred_label_data']['min_array'][0],
+                    max: data['cons_pred_label_data']['max_array'][0],
                 },
                 series: [
 
@@ -1499,12 +1499,12 @@
             }
 
             for (var i = 0; i < data['num_constraints']; i++) {
-                cons_pre_label_option['series'].push(
+                cons_pred_label_option['series'].push(
                 {
                     name: 'cons ' + (i+1),
                     type: 'scatter',
                     color: '#50a3ba',
-                    data: data['cons_pre_label_data']['data'][i],
+                    data: data['cons_pred_label_data']['data'][i],
                     markLine: {
                         animation: false,
                         label: {
@@ -1520,11 +1520,11 @@
                         data: [
                             [
                                 {
-                                    coord: [data['cons_pre_label_data']['min_array'][i], data['cons_pre_label_data']['min_array'][i]],
+                                    coord: [data['cons_pred_label_data']['min_array'][i], data['cons_pred_label_data']['min_array'][i]],
                                     symbol: 'none'
                                 },
                                 {
-                                    coord: [data['cons_pre_label_data']['max_array'][i], data['cons_pre_label_data']['max_array'][i]],
+                                    coord: [data['cons_pred_label_data']['max_array'][i], data['cons_pred_label_data']['max_array'][i]],
                                     symbol: 'none'
                                 }
                             ]
@@ -1532,27 +1532,27 @@
                     },
                 })
                 if(i != 0) {
-                    cons_pre_label_option['legend']['selected']['cons ' + (i+1)] = false;
+                    cons_pred_label_option['legend']['selected']['cons ' + (i+1)] = false;
                 }
             }
 
-            cons_pre_label_option && cons_pre_label_chart.setOption(cons_pre_label_option);
+            cons_pred_label_option && cons_pred_label_chart.setOption(cons_pred_label_option);
 
-            cons_pre_label_chart.on('legendselectchanged', function(params){
+            cons_pred_label_chart.on('legendselectchanged', function(params){
                 console.log(params);
                 for (var i = 0; i < data['num_objectives']; i++) {
                     if (params.selected['cons ' + (i+1)]){
-                        cons_pre_label_option.xAxis.min = data['cons_pre_label_data']['min_array'][i]
-                        cons_pre_label_option.xAxis.max = data['cons_pre_label_data']['max_array'][i]
-                        cons_pre_label_option.yAxis.min = data['cons_pre_label_data']['min_array'][i]
-                        cons_pre_label_option.yAxis.max = data['cons_pre_label_data']['max_array'][i]
+                        cons_pred_label_option.xAxis.min = data['cons_pred_label_data']['min_array'][i]
+                        cons_pred_label_option.xAxis.max = data['cons_pred_label_data']['max_array'][i]
+                        cons_pred_label_option.yAxis.min = data['cons_pred_label_data']['min_array'][i]
+                        cons_pred_label_option.yAxis.max = data['cons_pred_label_data']['max_array'][i]
                         break
                     }
                 }
-                cons_pre_label_option['legend']['selected'] = params.selected
-                cons_pre_label_chart.setOption(cons_pre_label_option)
+                cons_pred_label_option['legend']['selected'] = params.selected
+                cons_pred_label_chart.setOption(cons_pred_label_option)
             })
-            cons_pre_label_option && cons_pre_label_chart.setOption(cons_pre_label_option);
+            cons_pred_label_option && cons_pred_label_chart.setOption(cons_pred_label_option);
 
 
         }

@@ -2,13 +2,10 @@ import os
 import re
 from datetime import datetime
 import json
-from typing import List, Union
 import numpy as np
 from openbox import logger
 from openbox.utils.history import History
 from openbox.visualization.base_visualizer import BaseVisualizer
-from openbox.surrogate.base.base_model import AbstractModel
-from openbox import space as sp
 from openbox.core.base import build_surrogate
 from sklearn.model_selection import KFold
 from scipy.stats import rankdata
@@ -19,24 +16,20 @@ class HTMLVisualizer(BaseVisualizer):
         importance_update_interval=5,
         importance_method='shap'
     )
+    _task_info_keys = [
+        'task_id',
+        'advisor_type', 'max_iterations', 'time_limit_per_trial',
+        'surrogate_type', 'constraint_surrogate_type', 'transfer_learning_history'
+    ]
 
     def __init__(
             self,
             logging_dir: str,
             history: History,
+            task_info: dict,
             auto_open_html: bool = False,
             advanced_analysis: bool = False,
             advanced_analysis_options: dict = None,
-            advisor_type: str = None,
-            surrogate_type: str = None,
-            constraint_surrogate_type: str = None,
-            config_space: sp.Space = None,
-            rng: np.random.RandomState = None,
-            transfer_learning_history: List[History] = None,
-            max_iterations: int = None,
-            time_limit_per_trial: int = None,
-            surrogate_model: Union[AbstractModel, List[AbstractModel]] = None,
-            constraint_models: List[AbstractModel] = None,
     ):
         super().__init__()
         assert isinstance(logging_dir, str) and logging_dir != ''
@@ -54,21 +47,17 @@ class HTMLVisualizer(BaseVisualizer):
         self._cache_advanced_data = dict()
 
         self.history = history
-        self.meta_data = {
+
+        if task_info is None:
+            task_info = dict()
+        self.task_info = {
             'task_id': task_id,
-            'advisor_type': advisor_type,
-            'surrogate_type': surrogate_type,
-            'constraint_surrogate_type': constraint_surrogate_type,
-            'max_iterations': max_iterations,
-            'time_limit_per_trial': time_limit_per_trial,
         }
+        self.task_info.update(task_info)
+        for k in self._task_info_keys:
+            if k not in self.task_info:
+                self.task_info[k] = None
 
-        self.config_space = config_space
-        self.rng = rng
-        self.transfer_learning_history = transfer_learning_history
-
-        self.surrogate_model = surrogate_model  # todo: if model is altered, this will not be updated
-        self.constraint_models = constraint_models
         self.timestamp = None
         self.html_path = None
         self.displayed_html_path = None
@@ -79,7 +68,7 @@ class HTMLVisualizer(BaseVisualizer):
 
     def setup(self, open_html=None):
         self.timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
-        task_id = self.meta_data['task_id']
+        task_id = self.task_info['task_id']
         self.html_path = os.path.join(self.output_dir, "%s_%s.html" % (task_id, self.timestamp))
         self.displayed_html_path = 'file://' + self.html_path
         self.json_path = os.path.join(self.output_dir, "visualization_data_%s_%s.json" % (task_id, self.timestamp))
@@ -91,7 +80,7 @@ class HTMLVisualizer(BaseVisualizer):
 
     def update(self, update_importance=None, verify_surrogate=None):
         iter_id = len(self.history)
-        max_iter = self.meta_data['max_iterations'] or np.inf
+        max_iter = self.task_info['max_iterations'] or np.inf
         if update_importance is None:
             if not self.advanced_analysis:
                 update_importance = False
@@ -100,7 +89,7 @@ class HTMLVisualizer(BaseVisualizer):
                 update_importance = iter_id and ((iter_id % update_interval == 0) or (iter_id >= max_iter))
         if verify_surrogate is None:
             verify_surrogate = False if not self.advanced_analysis \
-                else (iter_id >= max_iter and self.meta_data['surrogate_type'])
+                else (iter_id >= max_iter and self.task_info['surrogate_type'])
         self.save_visualization_data(update_importance=update_importance, verify_surrogate=verify_surrogate)
 
         if iter_id == max_iter:
@@ -167,7 +156,7 @@ class HTMLVisualizer(BaseVisualizer):
 
         # todo: check if has invalid value
         for idx, obs in enumerate(self.history.observations):
-            results = [round(v, 6) for v in obs.objectives]
+            objectives = [round(v, 6) for v in obs.objectives]
             constraints = None
             if self.history.num_constraints > 0:
                 constraints = [round(v, 6) for v in obs.constraints]
@@ -181,15 +170,15 @@ class HTMLVisualizer(BaseVisualizer):
                 config_str = config_str[1:-1]
 
             table_list.append(
-                [idx + 1, results, constraints, config_dic, config_str, obs.trial_state,
+                [idx + 1, objectives, constraints, config_dic, config_str, obs.trial_state,
                  round(obs.elapsed_time, 3)])
 
             config_values = list(config_dic.values())
 
-            option['data'].append(constraints + results + config_values + [idx + 1])
+            option['data'].append(constraints + objectives + config_values + [idx + 1])
 
             for i in range(self.history.num_objectives):
-                perf_list[i].append(results[i])
+                perf_list[i].append(objectives[i])
 
             for i in range(self.history.num_constraints):
                 cons_list[i].append(constraints[i])
@@ -226,10 +215,9 @@ class HTMLVisualizer(BaseVisualizer):
                     line_data[i]['best'].append([idx + 1, perf])
                 else:
                     line_data[i]['feasible'].append([idx + 1, perf])
-            # line_data[i]['ok'].append([len(option['data'][i]), min_value])
+            # line_data[i]['best'].append([len(option['data'][i]), min_value])
 
         # Pareto data
-        # todo: if ref_point is None?
         # todo: if has invalid value?
         y = self.history.get_objectives(transform='none', warn_invalid_value=False)
         success_mask = self.history.get_success_mask()
@@ -240,7 +228,7 @@ class HTMLVisualizer(BaseVisualizer):
             pareto["ref_point"] = self.history.ref_point
             if pareto["ref_point"] is None:
                 pareto["hv"] = None
-                print("Please enter a reference point, or OpenBox can't draw hypervolume chart!\n")
+                logger.warning("Please provide ref_point for visualizer to draw hypervolume chart!\n")
             else:
                 hypervolumes = self.history.compute_hypervolume(data_range='all')
                 pareto["hv"] = [[idx + 1, round(v, 3)] for idx, v in enumerate(hypervolumes)]
@@ -261,9 +249,9 @@ class HTMLVisualizer(BaseVisualizer):
             'task_inf': {
                 'table_field': ['Task Id', 'Advisor Type', 'Surrogate Type', 'Current Run', 'Max Runs',
                                 'Time Limit Per Trial'],
-                'table_data': [self.meta_data['task_id'], self.meta_data['advisor_type'],
-                               self.meta_data['surrogate_type'], len(self.history), self.meta_data['max_iterations'],
-                               self.meta_data['time_limit_per_trial']]
+                'table_data': [self.task_info['task_id'], self.task_info['advisor_type'],
+                               self.task_info['surrogate_type'], len(self.history), self.task_info['max_iterations'],
+                               self.task_info['time_limit_per_trial']]
             },
             'importance_data': None,
             'pred_label_data': None,
@@ -325,10 +313,13 @@ class HTMLVisualizer(BaseVisualizer):
             X = self.history.get_config_array(transform='scale')
             Y = self.history.get_objectives(transform='infeasible')
 
-            models = [build_surrogate(func_str=self.meta_data['surrogate_type'],
-                                      config_space=self.config_space,
-                                      rng=self.rng,
-                                      transfer_learning_history=self.transfer_learning_history)
+            surrogate_type = self.task_info['surrogate_type']
+            if surrogate_type is None:
+                raise ValueError('Please set surrogate_type in task_info!')
+            models = [build_surrogate(func_str=surrogate_type,
+                                      config_space=self.history.get_config_space(),
+                                      rng=np.random.RandomState(1),
+                                      transfer_learning_history=self.task_info['transfer_learning_history'])
                       for _ in range(self.history.num_objectives)]
 
             pred_label_data, grade_data = self.verify_surrogate(X, Y, models)
@@ -339,9 +330,13 @@ class HTMLVisualizer(BaseVisualizer):
             # prepare constraint surrogate model data
             cons_X = X
             cons_Y = self.history.get_constraints(transform='bilog')
-            cons_models = [build_surrogate(func_str=self.meta_data['constraint_surrogate_type'],
-                                           config_space=self.config_space,
-                                           rng=self.rng) for _ in range(self.history.num_constraints)]
+            constraint_surrogate_type = self.task_info['constraint_surrogate_type']
+            if constraint_surrogate_type is None:
+                raise ValueError('Please set constraint_surrogate_type in task_info!')
+            cons_models = [build_surrogate(func_str=constraint_surrogate_type,
+                                           config_space=self.history.get_config_space(),
+                                           rng=np.random.RandomState(1))
+                           for _ in range(self.history.num_constraints)]
 
             cons_pred_label_data, _ = self.verify_surrogate(cons_X, cons_Y, cons_models)
 
@@ -375,7 +370,6 @@ class HTMLVisualizer(BaseVisualizer):
 
                 pred_mean, _ = tmp_model.predict(X_test)
                 pred_Y[test_index, i:i + 1] = pred_mean
-
 
             rank = rankdata(Y[:, i], method='min')
             pred_rank = rankdata(pred_Y[:, i], method='min')

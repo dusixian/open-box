@@ -447,8 +447,8 @@
                     console.log(paras);
                     var res = paras.seriesName + "</br>";
                     res = res + "obj value: " + paras.value[1] + '</br>';
-                    if(data['num_constraints'] > 0 && paras.value[0] < data['cons_list_rev'].length) {
-                        res = res + "cons value: " + data['cons_list_rev'][paras.value[0]];
+                    if(data['num_constraints'] > 0 && paras.value[0] <= data['cons_list_rev'].length) {
+                        res = res + "cons value: " + data['cons_list_rev'][paras.value[0]-1];
                     }
 
                     console.log(res)
@@ -1131,7 +1131,7 @@
             $.each(parallel_option['schema'], function (i, text) {
                 let item = {};
                 if (i === 0) {
-                    item = { dim: 0, name: text, inverse: true, max: 31, nameLocation: 'start' }
+                    item = { dim: 0, name: text, inverse: true, nameLocation: 'start' }
                 } else {
                     item['name'] = text;
                     item['dim'] = i;

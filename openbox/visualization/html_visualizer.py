@@ -175,7 +175,10 @@ class HTMLVisualizer(BaseVisualizer):
 
             config_values = list(config_dic.values())
 
-            option['data'].append(constraints + objectives + config_values + [idx + 1])
+            op = [idx + 1] + config_values + objectives
+            if constraints:
+                op = op + constraints
+            option['data'].append(op)
 
             for i in range(self.history.num_objectives):
                 perf_list[i].append(objectives[i])
@@ -186,14 +189,14 @@ class HTMLVisualizer(BaseVisualizer):
         if len(self.history) > 0:
             parameters = self.history.get_config_space().get_hyperparameter_names()
 
-            option['schema'] = ['Cons ' + str(i+1) for i in range(self.history.num_constraints)] \
-                               + ['Objs ' + str(i+1) for i in range(self.history.num_objectives)] \
-                               + list(parameters) + ['Uid']
+            option['schema'] = ['Uid'] + list(parameters) \
+                               + ['Objs ' + str(i + 1) for i in range(self.history.num_objectives)] \
+                               + ['Cons ' + str(i + 1) for i in range(self.history.num_constraints)]
 
             option['visualMap']['min'] = 1
             option['visualMap']['max'] = len(self.history)
 
-            option['visualMap']['dimension'] = len(option['schema']) - 1
+            option['visualMap']['dimension'] = 0
         else:
             option['visualMap']['min'] = 0
             option['visualMap']['max'] = 100
@@ -207,7 +210,6 @@ class HTMLVisualizer(BaseVisualizer):
             for idx, perf in enumerate(perf_list[i]):
                 if self.history.num_constraints > 0 and np.any(
                         [cons_list_rev[idx][k] > 0 for k in range(self.history.num_constraints)]):
-
                     line_data[i]['infeasible'].append([idx + 1, perf])
                     continue
                 if perf <= min_value:

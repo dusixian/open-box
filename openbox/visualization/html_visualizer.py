@@ -3,12 +3,12 @@ import re
 from datetime import datetime
 import json
 import numpy as np
+from scipy.stats import rankdata
+from sklearn.model_selection import KFold
 from openbox import logger
 from openbox.utils.history import History
 from openbox.visualization.base_visualizer import BaseVisualizer
 from openbox.core.base import build_surrogate
-from sklearn.model_selection import KFold
-from scipy.stats import rankdata
 
 
 class HTMLVisualizer(BaseVisualizer):

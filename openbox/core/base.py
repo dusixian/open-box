@@ -77,37 +77,39 @@ def build_optimizer(func_str='local_random', acq_func=None, config_space=None, r
                      rng=rng)
 
 
-def build_surrogate(func_str='gp', config_space=None, rng=None, transfer_learning_history=None):
+def build_surrogate(func_str='gp', config_space=None, rng=None, transfer_learning_history=None, is_parego=False):
     assert config_space is not None
     func_str = func_str.lower()
     types, bounds = get_types(config_space)
     seed = rng.randint(MAXINT)
+
+    base_surrogate = None
     if func_str == 'prf':
         try:
             from openbox.surrogate.base.rf_with_instances import RandomForestWithInstances
-            return RandomForestWithInstances(types=types, bounds=bounds, seed=seed)
+            base_surrogate = RandomForestWithInstances(types=types, bounds=bounds, seed=seed)
         except ModuleNotFoundError:
             from openbox.surrogate.base.rf_with_instances_sklearn import skRandomForestWithInstances
             logger.warning('[Build Surrogate] Use probabilistic random forest based on scikit-learn. '
                            'For better performance, please install pyrfr: '
                            'https://open-box.readthedocs.io/en/latest/installation/install_pyrfr.html')
-            return skRandomForestWithInstances(types=types, bounds=bounds, seed=seed)
+            base_surrogate = skRandomForestWithInstances(types=types, bounds=bounds, seed=seed)
 
     elif func_str == 'sk_prf':
         from openbox.surrogate.base.rf_with_instances_sklearn import skRandomForestWithInstances
-        return skRandomForestWithInstances(types=types, bounds=bounds, seed=seed)
+        base_surrogate = skRandomForestWithInstances(types=types, bounds=bounds, seed=seed)
 
     elif func_str == 'lightgbm':
         from openbox.surrogate.lightgbm import LightGBM
-        return LightGBM(config_space, types=types, bounds=bounds, seed=seed)
+        base_surrogate = LightGBM(config_space, types=types, bounds=bounds, seed=seed)
 
     if func_str == 'random_forest':
         from openbox.surrogate.skrf import RandomForestSurrogate
-        return RandomForestSurrogate(config_space, types=types, bounds=bounds, seed=seed)
+        base_surrogate = RandomForestSurrogate(config_space, types=types, bounds=bounds, seed=seed)
 
     elif func_str.startswith('gp'):
         from openbox.surrogate.base.build_gp import create_gp_model
-        return create_gp_model(model_type=func_str,
+        base_surrogate = create_gp_model(model_type=func_str,
                                config_space=config_space,
                                types=types,
                                bounds=bounds,
@@ -115,26 +117,32 @@ def build_surrogate(func_str='gp', config_space=None, rng=None, transfer_learnin
     elif func_str.startswith('mfgpe'):
         from openbox.surrogate.tlbo.mfgpe import MFGPE
         inner_surrogate_type = 'prf'
-        return MFGPE(config_space, transfer_learning_history, seed,
+        base_surrogate = MFGPE(config_space, transfer_learning_history, seed,
                      surrogate_type=inner_surrogate_type, num_src_hpo_trial=-1)
     elif func_str.startswith('tlbo'):
         logger.info('The current TL surrogate is %s' % func_str)
         if 'rgpe' in func_str:
             from openbox.surrogate.tlbo.rgpe import RGPE
             inner_surrogate_type = func_str.split('_')[-1]
-            return RGPE(config_space, transfer_learning_history, seed,
+            base_surrogate = RGPE(config_space, transfer_learning_history, seed,
                         surrogate_type=inner_surrogate_type, num_src_hpo_trial=-1)
         elif 'sgpr' in func_str:
             from openbox.surrogate.tlbo.stacking_gpr import SGPR
             inner_surrogate_type = func_str.split('_')[-1]
-            return SGPR(config_space, transfer_learning_history, seed,
+            base_surrogate = SGPR(config_space, transfer_learning_history, seed,
                         surrogate_type=inner_surrogate_type, num_src_hpo_trial=-1)
         elif 'topov3' in func_str:
             from openbox.surrogate.tlbo.topo_variant3 import TOPO_V3
             inner_surrogate_type = func_str.split('_')[-1]
-            return TOPO_V3(config_space, transfer_learning_history, seed,
+            base_surrogate = TOPO_V3(config_space, transfer_learning_history, seed,
                            surrogate_type=inner_surrogate_type, num_src_hpo_trial=-1)
         else:
             raise ValueError('Invalid string %s for tlbo surrogate!' % func_str)
     else:
         raise ValueError('Invalid string %s for surrogate!' % func_str)
+    
+    if is_parego:
+        from openbox.surrogate.base.build_parego import PareGOSurrogate
+        return PareGOSurrogate(base_surrogate=base_surrogate, seed=seed)
+    else:
+        return base_surrogate

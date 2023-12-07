@@ -151,8 +151,8 @@ class EI(AbstractAcquisitionFunction):
         np.ndarray(N, 1)
             Expected Improvement of X
         """
-        if len(X.shape) == 1:
-            X = X[:, np.newaxis]
+        # if len(X.shape) == 1:
+        #     X = X[:, np.newaxis]
 
         m, v = self.model.predict_marginalized_over_instances(X)
         s = np.sqrt(v)
@@ -275,8 +275,8 @@ class EIPS(EI):
         np.ndarray(N,1)
             Expected Improvement per Second of X
         """
-        if len(X.shape) == 1:
-            X = X[:, np.newaxis]
+        # if len(X.shape) == 1:
+        #     X = X[:, np.newaxis]
 
         m, v = self.model.predict_marginalized_over_instances(X)
         if m.shape[1] != 2:
@@ -365,8 +365,8 @@ class LogEI(AbstractAcquisitionFunction):
                              'eta=<int>) to inform the acquisition function '
                              'about the current best value.')
 
-        if len(X.shape) == 1:
-            X = X[:, np.newaxis]
+        # if len(X.shape) == 1:
+        #     X = X[:, np.newaxis]
 
         m, var_ = self.model.predict_marginalized_over_instances(X)
         std = np.sqrt(var_)
@@ -507,8 +507,8 @@ class PI(AbstractAcquisitionFunction):
                              'eta=<float>) to inform the acquisition function '
                              'about the current best value.')
 
-        if len(X.shape) == 1:
-            X = X[:, np.newaxis]
+        # if len(X.shape) == 1:
+        #     X = X[:, np.newaxis]
         m, var_ = self.model.predict_marginalized_over_instances(X)
         std = np.sqrt(var_)
         return norm.cdf((self.eta - m - self.par) / std)
@@ -559,8 +559,8 @@ class LCB(AbstractAcquisitionFunction):
             raise ValueError('No current number of Datapoints specified. Call update('
                              'num_data=<int>) to inform the acquisition function '
                              'about the number of datapoints.')
-        if len(X.shape) == 1:
-            X = X[:, np.newaxis]
+        # if len(X.shape) == 1:
+        #     X = X[:, np.newaxis]
         m, var_ = self.model.predict_marginalized_over_instances(X)
         std = np.sqrt(var_)
         beta = 2 * np.log((X.shape[1] * self.num_data ** 2) / self.par)
@@ -611,8 +611,8 @@ class Uncertainty(AbstractAcquisitionFunction):
             raise ValueError('No current number of Datapoints specified. Call update('
                              'num_data=<int>) to inform the acquisition function '
                              'about the number of datapoints.')
-        if len(X.shape) == 1:
-            X = X[:, np.newaxis]
+        # if len(X.shape) == 1:
+        #     X = X[:, np.newaxis]
         m, var_ = self.model.predict_marginalized_over_instances(X)
         std = np.sqrt(var_)
         beta = 2 * np.log((X.shape[1] * self.num_data ** 2) / self.par)

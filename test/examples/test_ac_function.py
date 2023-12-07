@@ -57,7 +57,7 @@ class MockConstraintModel:
     
 class MockModelWithNaN:
     def predict_marginalized_over_instances(self, X):
-        return np.full(X.shape[0], np.nan).reshape((-1, 1)), np.full(X.shape[0], 1.0).reshape((-1, 1))
+        return np.full(X.shape[0], np.nan).reshape((-1, 1)), np.full(X.shape[0], np.nan).reshape((-1, 1))
     
 class MockModelWrongVShape:
     def predict_marginalized_over_instances(self, X):
@@ -129,6 +129,11 @@ def test_convert_false_with_1x1(model, acquisition_function):
     assert acq.shape == (1, 1)
     assert np.isclose(acq[0][0], 0.5998206141871228)
 
+def test_notimplemented():
+    with pytest.raises(TypeError):
+        instance = AbstractAcquisitionFunction()
+        instance([ConfigurationMock([0.5])])
+
 
 # --------------------------------------------------------------
 # Test EI
@@ -173,8 +178,8 @@ def test_ei_NxD(model, acquisition_function):
 def test_ei_zero_variance(model, acquisition_function):
     ei = acquisition_function
     ei.update(model=model, eta=1.0)
-    X = np.array([ConfigurationMock([0.0])])
-    acq = np.array(ei(X))
+    configurations = np.array([ConfigurationMock([0.0])])
+    acq = np.array(ei(configurations))
     assert np.isclose(acq[0][0], 0.0)
 
 def test_ei_Nx1(model, acquisition_function):
@@ -537,3 +542,11 @@ def test_uncertainty_NxD(model, acq_uncer):
     assert np.isclose(acq[0][0], 0.03377508689746394)
     assert np.isclose(acq[1][0], 1.0680620276609596)
     assert np.isclose(acq[2][0], 3.377508689746394)
+
+def test_uncertainty_with_nan(model_with_nan, acq_uncer):
+    uncertainty = acq_uncer
+    uncertainty.update(model=model_with_nan, num_data=10)
+    configurations = [ConfigurationMock([0.5])]
+    acq = uncertainty(configurations)
+
+    assert np.all(acq == 0)

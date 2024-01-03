@@ -77,13 +77,18 @@ def build_optimizer(func_str='local_random', acq_func=None, config_space=None, r
                      rng=rng)
 
 
-def build_surrogate(func_str='gp', config_space=None, rng=None, transfer_learning_history=None, is_parego=False):
+def build_surrogate(func_str='gp', config_space=None, rng=None, transfer_learning_history=None):
     assert config_space is not None
     func_str = func_str.lower()
     types, bounds = get_types(config_space)
     seed = rng.randint(MAXINT)
 
     base_surrogate = None
+    is_parego=False
+    if func_str.startswith('parego'):
+        is_parego=True
+        func_str = func_str[6:]
+    
     if func_str == 'prf':
         try:
             from openbox.surrogate.base.rf_with_instances import RandomForestWithInstances

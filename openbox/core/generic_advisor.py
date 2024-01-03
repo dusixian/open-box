@@ -241,11 +241,10 @@ class Advisor(object, metaclass=abc.ABCMeta):
                                                    rng=self.rng,
                                                    transfer_learning_history=self.transfer_learning_history)
         elif self.acq_type == 'parego':
-            self.surrogate_model = build_surrogate(func_str=self.surrogate_type,
+            self.surrogate_model = build_surrogate(func_str='parego' + self.surrogate_type,
                                                    config_space=self.config_space,
                                                    rng=self.rng,
-                                                   transfer_learning_history=self.transfer_learning_history,
-                                                   is_parego = True)
+                                                   transfer_learning_history=self.transfer_learning_history)
         else:  # multi-objectives
             self.surrogate_model = [build_surrogate(func_str=self.surrogate_type,
                                                     config_space=self.config_space,

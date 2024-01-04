@@ -2,10 +2,12 @@
 # Copyright (c) 2016-2018, Ml4AAD Group (http://www.ml4aad.org/)
 
 import numpy as np
+
+from openbox import logger
 from openbox.utils.multi_objective import get_chebyshev_scalarization
 
 
-class PareGOSurrogate(object):
+class ParEGOSurrogate(object):
     def __init__(self, base_surrogate, seed):
         self.base_surrogate = base_surrogate 
         self.rng = np.random.RandomState(seed)
@@ -15,6 +17,7 @@ class PareGOSurrogate(object):
         num_objectives = Y.shape[1]
         
         weights = self.rng.dirichlet(alpha=np.ones(num_objectives))
+        logger.info(f'[ParEGO] Sampled weights: {weights}')
         self.scalarized_obj = get_chebyshev_scalarization(weights, Y)
         Y_scalarized = self.scalarized_obj(Y)
 
@@ -23,7 +26,7 @@ class PareGOSurrogate(object):
     def predict(self, X):
         return self.base_surrogate.predict(X)
 
-    def get_weights(self):
+    def get_scalarized_obj(self):
         return self.scalarized_obj
     
     def predict_marginalized_over_instances(self, X):
@@ -37,6 +40,3 @@ class PareGOSurrogate(object):
             return self.base_surrogate.sample_functions(X, n_funcs)
         else:
             raise NotImplementedError("Sampling functions is not implemented for the base surrogate.")
-    
-    
-

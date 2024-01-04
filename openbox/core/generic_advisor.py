@@ -242,7 +242,8 @@ class Advisor(object, metaclass=abc.ABCMeta):
                                                    rng=self.rng,
                                                    transfer_learning_history=self.transfer_learning_history)
         elif self.acq_type == 'parego':
-            self.surrogate_model = build_surrogate(func_str='parego_' + self.surrogate_type,
+            func_str = 'parego_' + self.surrogate_type
+            self.surrogate_model = build_surrogate(func_str=func_str,
                                                    config_space=self.config_space,
                                                    rng=self.rng,
                                                    transfer_learning_history=self.transfer_learning_history)
@@ -403,10 +404,11 @@ class Advisor(object, metaclass=abc.ABCMeta):
             else:  # multi-objectives
                 mo_incumbent_values = history.get_mo_incumbent_values()
                 if self.acq_type == 'parego':
-                    scalarized_obj = self.surrogate_model.get_weights()
+                    scalarized_obj = self.surrogate_model.get_scalarized_obj()
+                    incumbent_value = scalarized_obj(np.atleast_2d(mo_incumbent_values))
                     self.acquisition_function.update(model=self.surrogate_model,
                                                      constraint_models=self.constraint_models,
-                                                     eta=scalarized_obj(np.atleast_2d(mo_incumbent_values)),
+                                                     eta=incumbent_value,
                                                      num_data=num_config_evaluated)
                 elif self.acq_type.startswith('ehvi'):
                     partitioning = NondominatedPartitioning(self.num_objectives, Y)

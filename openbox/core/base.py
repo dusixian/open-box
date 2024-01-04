@@ -52,8 +52,8 @@ def build_surrogate(func_str='gp', config_space=None, rng=None, transfer_learnin
         base_surrogate = build_surrogate(
             func_str=func_str, config_space=config_space, rng=rng, 
             transfer_learning_history=transfer_learning_history)
-        from openbox.surrogate.base.build_parego import PareGOSurrogate
-        return PareGOSurrogate(base_surrogate=base_surrogate, seed=seed)
+        from openbox.surrogate.mo.parego import ParEGOSurrogate
+        return ParEGOSurrogate(base_surrogate=base_surrogate, seed=seed)
 
     if func_str == 'prf':
         try:

@@ -1,0 +1,24 @@
+{
+  "task_id": "OpenBox",
+  "num_objectives": 1,
+  "num_constraints": 0,
+  "ref_point": null,
+  "meta_info": {},
+  "global_start_time": "2024-01-17T23:38:09.314486",
+  "observations": [
+    {
+      "config": {
+        "x1": 2.988556389455643,
+        "x2": 9.53048225312327
+      },
+      "objectives": [
+        0.1
+      ],
+      "constraints": null,
+      "trial_state": 0,
+      "elapsed_time": 2.0,
+      "create_time": "2024-01-17T23:38:09.809814",
+      "extra_info": {}
+    }
+  ]
+}

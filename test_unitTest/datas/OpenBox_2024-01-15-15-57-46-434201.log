@@ -1,0 +1,4 @@
+[2024-01-15 15:57:46,434][OpenBox][INFO][color_logger.py:203] Logfile: /Users/xubeideng/Documents/Scientific Research/AutoML/code/open-box/test_unitTest/datas/OpenBox_2024-01-15-15-57-46-434201.log
+[2024-01-15 15:57:46,439][OpenBox][INFO][generic_advisor.py:144] [BO auto selection]  surrogate_type: gp. acq_type: ei. acq_optimizer_type: random_scipy.
+[2024-01-15 15:57:46,440][OpenBox][INFO][generic_smbo.py:295] Iter 1, objectives: [55.602112642270264].
+[2024-01-15 15:57:46,628][OpenBox][INFO][generic_smbo.py:295] Iter 2, objectives: [145.87219087939556].

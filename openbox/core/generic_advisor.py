@@ -461,6 +461,14 @@ class Advisor(BaseAdvisor):
         if not self.early_stop or self.already_early_stopped:
             return False
 
+        # check if reach the minimum number of iter
+        if ('min_iter' in self.early_stop_kwargs):
+            self.early_stop_min = self.early_stop_kwargs['min_iter']
+        else:
+            self.early_stop_min = 10
+        if len(history) < self.early_stop_min:
+            return False
+
         # Condition 1: EI less than 10% of the difference between the best and default configuration
         acq = self.acquisition_function([config], convert=True)[0]
         best_obs = self.acquisition_function.eta
@@ -480,7 +488,7 @@ class Advisor(BaseAdvisor):
         if ('improvement_threshold' in self.early_stop_kwargs):
             improvement_threshold = self.early_stop_kwargs['improvement_threshold']
         else:
-            improvement_threshold = 0.1
+            improvement_threshold = 0.05
         if(acq[0] < improvement_threshold * improvement):
             return True
 
@@ -490,9 +498,9 @@ class Advisor(BaseAdvisor):
             self.last_eta = best_obs
             self.no_improvement_rounds = 0
         else:
-            if(best_obs >= self.last_eta):
+            if(best_obs == self.last_eta):
                 self.no_improvement_rounds += 1
-                if self.early_stop_kwargs and 'no_improvement_rounds' in self.early_stop_kwargs:
+                if 'no_improvement_rounds' in self.early_stop_kwargs:
                     if self.no_improvement_rounds >= self.early_stop_kwargs['no_improvement_rounds']:
                         return True
             else:

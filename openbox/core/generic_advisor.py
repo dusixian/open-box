@@ -12,6 +12,11 @@ from openbox.acq_optimizer import build_acq_optimizer
 from openbox.core.base_advisor import BaseAdvisor
 
 
+class EarlyStopException(Exception):
+    """Exception raised for early stopping in Advisor."""
+    pass
+
+
 class Advisor(BaseAdvisor):
     """
     Basic Advisor Class, which adopts a policy to sample a configuration.
@@ -35,6 +40,8 @@ class Advisor(BaseAdvisor):
             ref_point=None,
             output_dir='logs',
             task_id='OpenBox',
+            early_stop=False, 
+            early_stop_kwargs=None,
             random_state=None,
             logger_kwargs: dict = None,
             **kwargs,
@@ -60,6 +67,7 @@ class Advisor(BaseAdvisor):
         self.constraint_surrogate_type = None
         self.acq_type = acq_type
         self.acq_optimizer_type = acq_optimizer_type
+        self.default_obj_value = None
 
         # initial design
         self.init_num = initial_trials
@@ -76,6 +84,16 @@ class Advisor(BaseAdvisor):
         self.acquisition_function = None
         self.acq_optimizer = None
         self.auto_alter_model = False
+
+        self.early_stop = early_stop
+        if(early_stop_kwargs):
+            self.early_stop_kwargs = early_stop_kwargs
+        else:
+            self.early_stop_kwargs = dict({})
+        self.already_early_stopped = False
+        self.last_eta = None
+        self.no_improvement_rounds = 0
+
         self.algo_auto_selection()
         self.check_setup()
         self.setup_bo_basics()
@@ -353,7 +371,6 @@ class Advisor(BaseAdvisor):
         if self.optimization_strategy == 'random':
             res = self.sample_random_configs(self.config_space, 1, excluded_configs=history.configurations)[0]
             return [res] if return_list else res
-
         if (not return_list) and self.rng.random() < self.rand_prob:
             logger.info('Sample random config. rand_prob=%f.' % self.rand_prob)
             res = self.sample_random_configs(self.config_space, 1, excluded_configs=history.configurations)[0]
@@ -425,9 +442,61 @@ class Advisor(BaseAdvisor):
 
             for config in challengers:
                 if config not in history.configurations:
-                    return config
+                    if self.should_early_stop(history, config):
+                        self.already_early_stopped = True
+                        raise EarlyStopException("Early stopping triggered based on the given criteria.")
+                    else:
+                        return config
             logger.warning('Cannot get non duplicate configuration from BO candidates (len=%d). '
                            'Sample random config.' % (len(challengers), ))
             return self.sample_random_configs(self.config_space, 1, excluded_configs=history.configurations)[0]
         else:
             raise ValueError('Unknown optimization strategy: %s.' % self.optimization_strategy)
+        
+    
+    def should_early_stop(self, history: History, config):
+        """
+        Determine whether to early stop based on the given criteria.
+        """
+        if not self.early_stop or self.already_early_stopped:
+            return False
+
+        # Condition 1: EI less than 10% of the difference between the best and default configuration
+        acq = self.acquisition_function([config], convert=True)[0]
+        best_obs = self.acquisition_function.eta
+        default_config = self.config_space.get_default_configuration()
+        if self.default_obj_value is None:
+            for obs in history.observations:
+                if obs.config == default_config:
+                    self.default_obj_value= obs.objectives
+                    break
+        assert(self.default_obj_value is not None)
+
+        print("acq: ", acq[0])
+        print("best_obs: ", best_obs)
+        print("default_obj_value: ", self.default_obj_value[0])
+        improvement = self.default_obj_value[0] - best_obs
+
+        if ('improvement_threshold' in self.early_stop_kwargs):
+            improvement_threshold = self.early_stop_kwargs['improvement_threshold']
+        else:
+            improvement_threshold = 0.1
+        if(acq[0] < improvement_threshold * improvement):
+            return True
+
+
+        # Condition 2: No improvement over multiple rounds
+        if (self.last_eta is None):
+            self.last_eta = best_obs
+            self.no_improvement_rounds = 0
+        else:
+            if(best_obs >= self.last_eta):
+                self.no_improvement_rounds += 1
+                if self.early_stop_kwargs and 'no_improvement_rounds' in self.early_stop_kwargs:
+                    if self.no_improvement_rounds >= self.early_stop_kwargs['no_improvement_rounds']:
+                        return True
+            else:
+                self.no_improvement_rounds = 0
+                self.last_eta = best_obs
+
+        return False

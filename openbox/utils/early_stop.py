@@ -15,7 +15,6 @@ class EarlyStopAlgorithm:
         self.last_eta = None
         self.no_improvement_rounds = 0
         self.default_obj_value = None
-        self.already_early_stopped = False
 
 
     def check_setup(self, advisor):
@@ -45,7 +44,7 @@ class EarlyStopAlgorithm:
         if not self.early_stop:
             return False
         
-        if self.already_early_stopped:
+        if history.already_early_stopped:
             return True
 
         # check if reach the minimum number of iter

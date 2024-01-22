@@ -351,6 +351,9 @@ class Advisor(BaseAdvisor):
         if history is None:
             history = self.history
 
+        if(history.already_early_stopped):
+            raise EarlyStopException("Early stopping has already triggered for configuration.")
+
         self.alter_model(history)
 
         num_config_evaluated = len(history)
@@ -435,7 +438,8 @@ class Advisor(BaseAdvisor):
             for config in challengers:
                 if config not in history.configurations:
                     if self.early_stop_algorithm.should_early_stop(history, config, self.acquisition_function):
-                        self.early_stop_algorithm.already_early_stopped = True
+                        # self.early_stop_algorithm.already_early_stopped = True
+                        self.history.already_early_stopped = True
                         raise EarlyStopException("Early stopping triggered for configuration.")
                     else:
                         return config

@@ -7,6 +7,7 @@ from openbox.utils.util_funcs import deprecate_kwarg
 from openbox.utils.history import History
 from openbox.utils.samplers import SobolSampler, LatinHypercubeSampler, HaltonSampler
 from openbox.utils.multi_objective import NondominatedPartitioning
+from openbox.utils.early_stop import EarlyStopAlgorithm, EarlyStopException
 from openbox.core.base import build_acq_func, build_surrogate
 from openbox.acq_optimizer import build_acq_optimizer
 from openbox.core.base_advisor import BaseAdvisor
@@ -35,6 +36,8 @@ class Advisor(BaseAdvisor):
             ref_point=None,
             output_dir='logs',
             task_id='OpenBox',
+            early_stop=False, 
+            early_stop_kwargs=None,
             random_state=None,
             logger_kwargs: dict = None,
             **kwargs,
@@ -70,6 +73,8 @@ class Advisor(BaseAdvisor):
         else:
             self.initial_configurations = self.create_initial_design(self.init_strategy)
             self.init_num = len(self.initial_configurations)
+        self.early_stop = early_stop
+        self.early_stop_algorithm = EarlyStopAlgorithm(early_stop, config_space, early_stop_kwargs)
 
         self.surrogate_model = None
         self.constraint_models = None
@@ -216,6 +221,10 @@ class Advisor(BaseAdvisor):
             assert len(surrogate_str) == 3 and surrogate_str[0] == 'tlbo'
             assert surrogate_str[1] in ['rgpe', 'sgpr', 'topov3']  # todo: 'mfgpe'
 
+        # early stop
+        if(self.early_stop):
+            self.early_stop_algorithm.check_setup(self)
+    
     def setup_bo_basics(self):
         """
         Prepare the basic BO components.
@@ -425,7 +434,11 @@ class Advisor(BaseAdvisor):
 
             for config in challengers:
                 if config not in history.configurations:
-                    return config
+                    if self.early_stop_algorithm.should_early_stop(history, config, self.acquisition_function):
+                        self.early_stop_algorithm.already_early_stopped = True
+                        raise EarlyStopException("Early stopping triggered for configuration.")
+                    else:
+                        return config
             logger.warning('Cannot get non duplicate configuration from BO candidates (len=%d). '
                            'Sample random config.' % (len(challengers), ))
             return self.sample_random_configs(self.config_space, 1, excluded_configs=history.configurations)[0]

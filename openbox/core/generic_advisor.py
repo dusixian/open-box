@@ -34,10 +34,10 @@ class Advisor(BaseAdvisor):
             acq_type='auto',
             acq_optimizer_type='auto',
             ref_point=None,
+            early_stop=False,
+            early_stop_kwargs=None,
             output_dir='logs',
             task_id='OpenBox',
-            early_stop=False, 
-            early_stop_kwargs=None,
             random_state=None,
             logger_kwargs: dict = None,
             **kwargs,
@@ -73,8 +73,13 @@ class Advisor(BaseAdvisor):
         else:
             self.initial_configurations = self.create_initial_design(self.init_strategy)
             self.init_num = len(self.initial_configurations)
+
+        # early stop
         self.early_stop = early_stop
-        self.early_stop_algorithm = EarlyStopAlgorithm(early_stop, config_space, early_stop_kwargs)
+        early_stop_kwargs = early_stop_kwargs or dict()
+        self.early_stop_algorithm = EarlyStopAlgorithm(**early_stop_kwargs) if self.early_stop else None
+        if self.early_stop:
+            logger.info(f'Early stop is enabled.')
 
         self.surrogate_model = None
         self.constraint_models = None
@@ -222,9 +227,9 @@ class Advisor(BaseAdvisor):
             assert surrogate_str[1] in ['rgpe', 'sgpr', 'topov3']  # todo: 'mfgpe'
 
         # early stop
-        if(self.early_stop):
-            self.early_stop_algorithm.check_setup(self)
-    
+        if self.early_stop:
+            self.early_stop_algorithm.check_setup(advisor=self)
+
     def setup_bo_basics(self):
         """
         Prepare the basic BO components.
@@ -351,8 +356,9 @@ class Advisor(BaseAdvisor):
         if history is None:
             history = self.history
 
-        if(history.already_early_stopped):
-            raise EarlyStopException("Early stopping has already triggered for configuration.")
+        if self.early_stop and self.early_stop_algorithm.decide_early_stop_before_suggest(history):
+            self.early_stop_algorithm.set_already_early_stopped(history)
+            raise EarlyStopException("Early stop triggered!")
 
         self.alter_model(history)
 
@@ -435,14 +441,17 @@ class Advisor(BaseAdvisor):
                 # Caution: return_list doesn't contain random configs sampled according to rand_prob
                 return challengers
 
+            # early stop
+            if self.early_stop:
+                max_acq_value = max(self.acquisition_function(challengers))
+                if self.early_stop_algorithm.decide_early_stop_after_suggest(
+                        history=history, max_acq_value=max_acq_value):
+                    self.early_stop_algorithm.set_already_early_stopped(history)
+                    raise EarlyStopException("Early stop triggered!")
+
             for config in challengers:
                 if config not in history.configurations:
-                    if self.early_stop_algorithm.should_early_stop(history, config, self.acquisition_function):
-                        # self.early_stop_algorithm.already_early_stopped = True
-                        self.history.already_early_stopped = True
-                        raise EarlyStopException("Early stopping triggered for configuration.")
-                    else:
-                        return config
+                    return config
             logger.warning('Cannot get non duplicate configuration from BO candidates (len=%d). '
                            'Sample random config.' % (len(challengers), ))
             return self.sample_random_configs(self.config_space, 1, excluded_configs=history.configurations)[0]

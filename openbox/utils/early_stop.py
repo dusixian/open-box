@@ -1,81 +1,115 @@
-# used for early stop
+import numpy as np
+from openbox import logger
+
 
 class EarlyStopException(Exception):
-    """Exception raised for early stopping in Advisor."""
+    """Exception raised for early stop in Advisor."""
     pass
 
-class EarlyStopAlgorithm:
-    def __init__(self, early_stop, config_space, early_stop_kwargs):
-        self.early_stop = early_stop
-        self.config_space = config_space
-        if(early_stop_kwargs):
-            self.early_stop_kwargs = early_stop_kwargs
-        else:
-            self.early_stop_kwargs = dict({})
-        self.last_eta = None
-        self.no_improvement_rounds = 0
-        self.default_obj_value = None
 
+class EarlyStopAlgorithm(object):
+    """
+    Class for early stop algorithms.
+
+    Criteria for early stop include:
+    1. No Improvement Rounds: Stop if the optimization does not improve over a number of rounds.
+    2. Improvement Threshold: Stop if the Expected Improvement is less than a certain percentage of
+       the difference between the best objective value and the default objective value.
+
+    Parameters
+    ----------
+    min_iter : int
+        Minimum number of iterations before early stop is considered.
+    min_improvement_percentage : float
+        The minimum improvement percentage. If the Expected Improvement (EI) is less than
+        `min_improvement_percentage * (default_obj_value - best_obj_value)`, early stop is triggered.
+        If `improvement_threshold` is 0, this criterion is disabled.
+    max_no_improvement_rounds : int
+        The maximum tolerable rounds with no improvement before early stop.
+        If `max_no_improvement_rounds` is 0, this criterion is disabled.
+    """
+    def __init__(
+            self,
+            min_iter: int = 10,
+            min_improvement_percentage: float = 0.05,
+            max_no_improvement_rounds: int = 10,
+    ):
+        self.min_iter = min_iter
+        self.min_improvement_percentage = min_improvement_percentage
+        self.max_no_improvement_rounds = max_no_improvement_rounds
+        logger.info(f'Early stop options: '
+                    f'min_iter={min_iter}, '
+                    f'min_improvement_percentage={min_improvement_percentage}, '
+                    f'max_no_improvement_rounds={max_no_improvement_rounds}')
 
     def check_setup(self, advisor):
         """
-        Check if the early stopping algorithm is applicable to the given advisor.
+        Check if the early stop algorithm is applicable to the given advisor.
         """
         if advisor.num_objectives != 1:
-            raise ValueError("Early stopping is only supported for single-objective optimization.")
+            raise ValueError("Early stop is only supported for single-objective optimization currently.")
 
-        if('improvement_threshold' in self.early_stop_kwargs):
-            if self.early_stop_kwargs['improvement_threshold'] <= 0:
-                raise ValueError("Improvement Threshold early stopping requires threshold to be larger than 0.")
-            if advisor.acq_type != 'ei':
-                raise ValueError("Improvement Threshold early stopping requires the Expected Improvement acquisition function.")
-            
-        if(not ('improvement_threshold' in self.early_stop_kwargs) and not ('no_improvement_rounds' in self.early_stop_kwargs)):
-            raise ValueError("Early stopping requires at least one of the following arguments: improvement_threshold, no_improvement_rounds.")
-        
-        if('min_iter' in self.early_stop_kwargs and self.early_stop_kwargs['min_iter'] < 0):
-            raise ValueError("Minimum number of iterations for early stopping must be non-negative.")
+        assert self.min_iter > 0, "Minimum number of iterations for early stop must be positive."
 
+        assert self.min_improvement_percentage >= 0, "min_improvement_percentage should be non-negative."
+        if self.min_improvement_percentage > 0:
+            assert advisor.acq_type == 'ei', ("Using min_improvement_percentage requires the "
+                                              "Expected Improvement acquisition function.")
 
-    def should_early_stop(self, history, config, acquisition_function):
+        assert self.max_no_improvement_rounds >= 0, "Maximum number of no improvement rounds should be non-negative."
+
+    @staticmethod
+    def already_early_stopped(history):
+        return history.meta_info.get('already_early_stopped', False)
+
+    @staticmethod
+    def set_already_early_stopped(history):
+        history.meta_info['already_early_stopped'] = True
+
+    def decide_early_stop_before_suggest(self, history):
         """
-        Determine whether to early stop based on the given criteria.
+        Determine whether to early stop before suggesting the next configuration.
         """
-        if not self.early_stop:
-            return False
-        
-        if history.already_early_stopped:
+        if self.already_early_stopped(history):
+            logger.info('Early stop already triggered!')
             return True
 
-        # check if reach the minimum number of iter
-        min_iter = self.early_stop_kwargs.get('min_iter', 10)
-        if len(history) < min_iter:
+        if len(history) < self.min_iter:
             return False
 
-        # Condition 1: EI less than 10% of the difference between the best and default configuration
-        if self.early_stop_kwargs.get('improvement_threshold', 0) > 0:
-            acq = acquisition_function([config], convert=True)[0]
-            best_obs = acquisition_function.eta
-            if self.default_obj_value is None:
-                default_config = self.config_space.get_default_configuration()
-                for obs in history.observations:
-                    if obs.config == default_config:
-                        self.default_obj_value = obs.objectives
-                        break
-                assert self.default_obj_value is not None
-
-            improvement = self.default_obj_value[0] - best_obs
-            if acq[0] < self.early_stop_kwargs['improvement_threshold'] * improvement:
+        # Condition 1: No improvement over multiple rounds
+        if self.max_no_improvement_rounds > 0:
+            best_obj = np.inf
+            last_improvement_round = 0
+            for i, objs in enumerate(history.objectives, start=1):
+                if objs[0] < best_obj:
+                    best_obj = objs[0]
+                    last_improvement_round = i
+            no_improvement_rounds = len(history) - last_improvement_round
+            if no_improvement_rounds > self.max_no_improvement_rounds:
+                logger.info(f'[Early Stop] No improvement over {no_improvement_rounds} rounds!')
                 return True
 
-        # Condition 2: No improvement over multiple rounds
-        if 'no_improvement_rounds' in self.early_stop_kwargs:
-            if self.last_eta is None or best_obs < self.last_eta:
-                self.last_eta = best_obs
-                self.no_improvement_rounds = 0
-            else:
-                self.no_improvement_rounds += 1
-                if self.no_improvement_rounds >= self.early_stop_kwargs['no_improvement_rounds']:
-                    return True
+        return False
+
+    def decide_early_stop_after_suggest(self, history, max_acq_value: float = None) -> bool:
+        """
+        Determine whether to early stop after suggesting the next configuration.
+        """
+        if len(history) < self.min_iter:
+            return False
+
+        # Condition 2: EI less than the threshold
+        if self.min_improvement_percentage > 0:
+            assert max_acq_value is not None
+            default_obj = history.objectives[0][0]  # todo: handle failure
+            best_obj = history.get_incumbent_value()
+            threshold = self.min_improvement_percentage * (default_obj - best_obj)
+            if max_acq_value < threshold:
+                logger.info(f'[Early Stop] EI less than the threshold! '
+                            f'min_improvement_percentage={self.min_improvement_percentage}, '
+                            f'default_obj={default_obj}, best_obj={best_obj}, threshold={threshold}, '
+                            f'max_EI={max_acq_value}')
+                return True
 
         return False

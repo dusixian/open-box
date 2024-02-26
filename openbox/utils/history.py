@@ -142,8 +142,6 @@ class History(object):
         self._ref_point = None
         self.ref_point = ref_point  # type: Optional[List[float]]
 
-        self.already_early_stopped = False
-
     def __len__(self):
         return len(self.observations)
 

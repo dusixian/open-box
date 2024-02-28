@@ -1,4 +1,4 @@
-# 早停
+# Early Stopping
 
 在本教程中，我们将介绍如何在OpenBox中使用早停算法（Early Stopping, ES）。
 在OpenBox中，早停算法通过监控优化过程的进展，并在满足特定条件时提前结束优化，以节省计算资源。
